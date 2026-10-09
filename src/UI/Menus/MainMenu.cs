@@ -72,6 +72,7 @@ public partial class MainMenu : Control
     {
         GetNode<Button>("Layout/Menu/NewGameButton").Pressed += OnNewGame;
         _continueButton.Pressed += OnContinue;
+        GetNode<Button>("Layout/Menu/SandboxButton").Pressed += OnSandbox;
         GetNode<Button>("Layout/Menu/SettingsButton").Pressed += () => _settingsPanel.Visible = !_settingsPanel.Visible;
         GetNode<Button>("Layout/Menu/QuitButton").Pressed += () => GetTree().Quit();
 
@@ -100,6 +101,12 @@ public partial class MainMenu : Control
         ulong seed = ((ulong)GD.Randi() << 32) ^ GD.Randi();
         GameContext.StartNew(seed);
         GetTree().ChangeSceneToFile(UniverseOverviewScene);
+    }
+
+    private void OnSandbox()
+    {
+        GameContext.GetOrCreate();
+        GetTree().ChangeSceneToFile("res://src/Gameplay/Ship/FlightSandbox.tscn");
     }
 
     private void OnContinue()
