@@ -37,10 +37,7 @@ namespace DarkSpace.Core.Simulation;
 public sealed class WorldSimulation
 {
     /// <summary>Длина сглаживания гравитации (делает притяжение конечным вблизи ядра звезды).</summary>
-    public const double GravitySoftening = 8.0;
-
-    /// <summary>Радиус стыковки с планетой (условные единицы).</summary>
-    public const double DockRange = 4.0;
+    public const double GravitySoftening = SystemScale.GravitySoftening;
 
     /// <summary>Стартовый баланс кредитов.</summary>
     public const double StartingCredits = 1000.0;
@@ -51,8 +48,8 @@ public sealed class WorldSimulation
     /// <summary>Максимальное число сообщений чата, хранимых в снапшоте.</summary>
     public const int MaxChatLog = 50;
 
-    /// <summary>Точка появления корабля — над плоскостью системы, вдали от звезды и планет.</summary>
-    public static readonly Vector3D ShipSpawn = new(0.0, 0.0, 12.0);
+    /// <summary>Точка появления корабля — над плоскостью системы, вдали от звезды.</summary>
+    public static readonly Vector3D ShipSpawn = new(0.0, 0.0, SystemScale.InnerOrbit * 1.3);
 
     private readonly Queue<IGameCommand> _pending = new();
     private readonly Dictionary<int, int> _cargo = new();
@@ -465,7 +462,7 @@ public sealed class WorldSimulation
         }
 
         double distance = SystemModel.DistanceToBody(TargetBodyIndex, _position, SimTime);
-        if (distance <= DockRange)
+        if (distance <= SystemModel.DockRadius(TargetBodyIndex))
         {
             DockedBodyIndex = TargetBodyIndex;
             _position = SystemModel.BodyPosition(TargetBodyIndex, SimTime);

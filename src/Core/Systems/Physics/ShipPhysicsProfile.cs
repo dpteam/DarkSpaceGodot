@@ -58,8 +58,8 @@ public readonly record struct ShipPhysicsProfile(
         AngularDamping: 3.0,
         LateralThrustFactor: 1.0,
         ReverseThrustFactor: 1.0,
-        MaxSpeed: 60.0,
-        SpeedAcceleration: 35.0,
+        MaxSpeed: 220.0,
+        SpeedAcceleration: 110.0,
         TurnResponsiveness: 6.0);
 
     /// <summary>Полная масса снаряжённого корабля.</summary>

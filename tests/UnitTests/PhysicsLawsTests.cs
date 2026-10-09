@@ -128,7 +128,7 @@ public sealed class PhysicsLawsTests
     {
         var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
-        const double r0 = 30.0;
+        const double r0 = 200.0;
 
         // Круговая орбита в сглаженном поле — минимальный радиальный дрейф.
         var position = new Vector3D(0.0, 0.0, r0);
@@ -155,7 +155,7 @@ public sealed class PhysicsLawsTests
     {
         var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
-        const double r0 = 30.0;
+        const double r0 = 200.0;
         double v = Astro.SoftenedCircularSpeed(mu, r0, WorldSimulation.GravitySoftening);
         sim.InitializeShip(new Vector3D(0.0, 0.0, r0), new Vector3D(v, 0.0, 0.0));
 
@@ -179,7 +179,7 @@ public sealed class PhysicsLawsTests
     {
         var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
-        const double r0 = 30.0;
+        const double r0 = 200.0;
         double v = Astro.SoftenedCircularSpeed(mu, r0, WorldSimulation.GravitySoftening);
         sim.InitializeShip(new Vector3D(0.0, 0.0, r0), new Vector3D(v, 0.0, 0.0));
 
@@ -203,7 +203,7 @@ public sealed class PhysicsLawsTests
     {
         var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
-        const double r0 = 30.0;
+        const double r0 = 200.0;
         // Скорость ниже круговой — тело связано гравитацией.
         double v = 0.5 * Astro.SoftenedCircularSpeed(mu, r0, WorldSimulation.GravitySoftening);
         sim.InitializeShip(new Vector3D(0.0, 0.0, r0), new Vector3D(v, 0.0, 0.0));
@@ -216,7 +216,7 @@ public sealed class PhysicsLawsTests
     {
         var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
-        const double r0 = 30.0;
+        const double r0 = 200.0;
         // Скорость выше скорости убегания — тело покидает систему.
         double v = 2.0 * Astro.EscapeSpeed(mu, r0);
         sim.InitializeShip(new Vector3D(0.0, 0.0, r0), new Vector3D(v, 0.0, 0.0));
@@ -224,7 +224,7 @@ public sealed class PhysicsLawsTests
         Assert.True(Energy(sim, mu) >= 0, "Орбита убегания должна иметь неотрицательную энергию.");
 
         const double dt = 1.0 / 240.0;
-        for (int i = 0; i < 6000; i++)
+        for (int i = 0; i < 40000; i++)
         {
             sim.Advance(dt);
         }
