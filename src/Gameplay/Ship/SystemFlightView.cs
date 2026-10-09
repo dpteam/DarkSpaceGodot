@@ -63,7 +63,7 @@ public partial class SystemFlightView : Node3D
         _help = GetNode<Label>("UI/Help");
         _targetInfo = GetNode<Label>("UI/TargetInfo");
         _velocityVector = GetNode<Label>("UI/VelocityVector");
-        _help.Text = "W/S — тангаж · A/D — рыскание · Q/E — крен · Shift — тяга · Ctrl — назад · Space/C — вертикаль · T — цель · F — стыковка";
+        _help.Text = "W/S — тангаж · A/D — крен · Q/E — рыскание · Shift — разгон · Ctrl — торможение · T — цель · F — стыковка · Esc — меню";
 
         StartLocalHost();
         BuildScene();
@@ -224,39 +224,39 @@ public partial class SystemFlightView : Node3D
 
     private static Vector3D ReadRotation()
     {
-        // pitch: W — нос вверх (−, см. знаки в физике); S — вниз.
+        // Элитовская схема: W/S — тангаж, A/D — крен (bank), Q/E — рыскание (необязательно).
         double pitch = 0.0;
         double yaw = 0.0;
         double roll = 0.0;
 
         if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up))
         {
-            pitch -= 1.0;
+            pitch += 1.0;
         }
 
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down))
         {
-            pitch += 1.0;
+            pitch -= 1.0;
         }
 
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))
         {
-            yaw -= 1.0;
+            roll -= 1.0;
         }
 
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right))
         {
-            yaw += 1.0;
+            roll += 1.0;
         }
 
         if (Input.IsKeyPressed(Key.Q))
         {
-            roll -= 1.0;
+            yaw -= 1.0;
         }
 
         if (Input.IsKeyPressed(Key.E))
         {
-            roll += 1.0;
+            yaw += 1.0;
         }
 
         return new Vector3D(pitch, yaw, roll);
@@ -264,8 +264,8 @@ public partial class SystemFlightView : Node3D
 
     private static Vector3D ReadThrust()
     {
+        // Элитовская схема: Shift «держать» — разгон, Ctrl — торможение. Спорный moment: без тяги скорость держится.
         double forward = 0.0;
-        double lift = 0.0;
 
         if (Input.IsKeyPressed(Key.Shift))
         {
@@ -279,16 +279,11 @@ public partial class SystemFlightView : Node3D
 
         if (Input.IsKeyPressed(Key.Space))
         {
-            lift += 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.C))
-        {
-            lift -= 1.0;
+            forward += 1.0;
         }
 
         // MoveCommand(forward, strafe, lift)
-        return new Vector3D(forward, 0.0, lift);
+        return new Vector3D(forward, 0.0, 0.0);
     }
 
     private void CycleTarget()
@@ -424,7 +419,7 @@ public partial class SystemFlightView : Node3D
 
         _hud.Text =
             $"Тик {s.Tick}   ·   система «{s.SystemName}» (галактика #{s.GalaxyIndex})\n" +
-            $"Скорость   {s.Velocity.Length,8:0.0}   ·   масса {s.ShipMass,6:0.0}\n" +
+            $"Скорость   {s.Speed,8:0.0}   ·   масса {s.ShipMass,6:0.0}\n" +
             $"Δv         {s.RemainingDeltaV,8:0.0}   ·   топливо {s.Fuel,6:0.0}\n" +
             $"Кредиты    {s.Credits,8:0}" +
             (s.Destroyed ? "\n[color=red]КОРАБЛЬ УНИЧТОЖЕН[/color]" : string.Empty);

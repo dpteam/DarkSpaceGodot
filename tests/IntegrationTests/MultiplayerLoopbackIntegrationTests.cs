@@ -33,7 +33,8 @@ public sealed class MultiplayerLoopbackIntegrationTests
 
         // Позиция, вычисленная сервером, доходит до клиента без искажений.
         Assert.Equal(server.CurrentSnapshot.Position, client.Latest.Position);
-        Assert.True(client.Latest.Position.X > 0);
+        Assert.True(client.Latest.Speed > 0, "После тяги вперёд в элитовской модели должна быть скорость.");
+        Assert.True((client.Latest.Position - WorldSimulation.ShipSpawn).Length > 0);
     }
 
     [Fact]
@@ -125,8 +126,14 @@ public sealed class MultiplayerLoopbackIntegrationTests
         var client = new GameClient(clientTransport);
         server.AddConnection(1, serverTransport);
 
-        // Тяга по всем трём осям.
-        client.Send(new MoveCommand(1, 0, 0.3, 0.2, -0.4));
+        // Разворот (крен) + тяга вперёд: корабль летит туда, куда смотрит.
+        client.Send(new RotateCommand(1, 0, 0.0, 0.0, 1.0));
+        for (int i = 0; i < 20; i++)
+        {
+            server.Step(Dt);
+        }
+
+        client.Send(new MoveCommand(1, 1, 1.0, 0.0, 0.0));
         for (int i = 0; i < 60; i++)
         {
             server.Step(Dt);
@@ -134,7 +141,8 @@ public sealed class MultiplayerLoopbackIntegrationTests
 
         Assert.NotNull(client.Latest);
         Assert.Equal(server.CurrentSnapshot.Position, client.Latest!.Position);
-        Assert.True(client.Latest.Position.Z < 0, "Тяга по -Z должна привести к отрицательной координате Z.");
+        Assert.True(client.Latest.Speed > 0, "После тяги вперёд должна быть скорость.");
+        Assert.True((client.Latest.Position - WorldSimulation.ShipSpawn).Length > 0, "Корабль должен сместиться.");
     }
 
     [Fact]
@@ -142,7 +150,7 @@ public sealed class MultiplayerLoopbackIntegrationTests
     {
         // Без команд корабль движется только под гравитацией: удельная энергия должна сохраняться
         // (проверяем тот же закон, что и в ядре, но сквозь сетевой слой).
-        var server = new GameServer(WorldSeed);
+        var server = new GameServer(WorldSeed) { FlightMode = FlightMode.Newtonian };
         LoopbackTransport.CreatePair(out LoopbackTransport clientTransport, out LoopbackTransport serverTransport);
         server.AddConnection(1, serverTransport);
 

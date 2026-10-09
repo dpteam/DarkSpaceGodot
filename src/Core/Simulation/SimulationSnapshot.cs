@@ -16,6 +16,7 @@ namespace DarkSpace.Core.Simulation;
 /// <param name="SimTime">Модельное время симуляции в секундах.</param>
 /// <param name="Position">Позиция корабля игрока в системе (3D).</param>
 /// <param name="Velocity">Скорость корабля игрока (3D).</param>
+/// <param name="Speed">Скалярная скорость корабля (для элитовской модели).</param>
 /// <param name="Orientation">Ориентация корабля (кватернион).</param>
 /// <param name="AngularVelocity">Угловая скорость корабля (3D).</param>
 /// <param name="Thrust">Текущая команда тяги в локальной системе (вперёд/вбок/вверх).</param>
@@ -40,6 +41,7 @@ public sealed record SimulationSnapshot(
     double SimTime,
     Vector3D Position,
     Vector3D Velocity,
+    double Speed,
     Quaternion Orientation,
     Vector3D AngularVelocity,
     Vector3D Thrust,

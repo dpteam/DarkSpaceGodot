@@ -154,6 +154,110 @@ public sealed class FlightModelTests
         Assert.Equal(RunFlight(), RunFlight());
     }
 
+    // ---------- Элитовская модель ----------
+
+    [Fact]
+    public void Elite_SpeedIsCappedAtMax()
+    {
+        var sim = new WorldSimulation(1); // по умолчанию FlightMode.EliteAligned
+        Assert.Equal(FlightMode.EliteAligned, sim.FlightMode);
+
+        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0, 0.0));
+        for (int i = 0; i < 2000; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        Assert.Equal(ShipPhysicsProfile.Default.MaxSpeed, sim.CaptureSnapshot().Speed, precision: 6);
+    }
+
+    [Fact]
+    public void Elite_NoThrust_SpeedStaysConstant()
+    {
+        var sim = new WorldSimulation(1);
+
+        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0, 0.0));
+        for (int i = 0; i < 60; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        double speed = sim.CaptureSnapshot().Speed;
+        Assert.True(speed > 0);
+
+        // Отпускаем тягу — в вакууме (элитовская модель) скорость сохраняется.
+        sim.Enqueue(new MoveCommand(1, 1, 0.0, 0.0, 0.0));
+        for (int i = 0; i < 300; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        Assert.Equal(speed, sim.CaptureSnapshot().Speed, precision: 6);
+    }
+
+    [Fact]
+    public void Elite_VelocityIsAlignedWithNose()
+    {
+        var sim = new WorldSimulation(1);
+        sim.Enqueue(new RotateCommand(1, 0, 0.3, 0.2, 0.4));
+        sim.Enqueue(new MoveCommand(1, 1, 1.0, 0.0, 0.0));
+        for (int i = 0; i < 200; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        SimulationSnapshot s = sim.CaptureSnapshot();
+        Vector3D nose = s.Orientation.Rotate(ShipAxes.Forward);
+        Assert.True(s.Velocity.Length > 0);
+        // Скорость строго вдоль носа (параллельна).
+        double cos = Vector3D.Dot(s.Velocity.Normalized(), nose);
+        Assert.Equal(1.0, cos, precision: 6);
+    }
+
+    [Fact]
+    public void Elite_Turning_KeepsSpeedButChangesDirection()
+    {
+        var sim = new WorldSimulation(1);
+
+        // Разгон.
+        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0, 0.0));
+        for (int i = 0; i < 120; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        SimulationSnapshot before = sim.CaptureSnapshot();
+        Vector3D dirBefore = before.Velocity.Normalized();
+        double speedBefore = before.Speed;
+        Assert.True(speedBefore > 0);
+
+        // Разворот тангажом (крен задаёт только «банк», направление меняет тангаж), тяга держится.
+        sim.Enqueue(new RotateCommand(1, 1, 1.0, 0.0, 0.0));
+        for (int i = 0; i < 120; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        SimulationSnapshot after = sim.CaptureSnapshot();
+        Vector3D dirAfter = after.Velocity.Normalized();
+
+        Assert.Equal(speedBefore, after.Speed, precision: 6); // скорость та же
+        Assert.True(Vector3D.Dot(dirBefore, dirAfter) < 0.999, "Направление движения должно измениться после разворота.");
+    }
+
+    [Fact]
+    public void Elite_LateralThrust_IsIgnored()
+    {
+        var sim = new WorldSimulation(1);
+        sim.Enqueue(new MoveCommand(1, 0, 0.0, 1.0, 1.0)); // только боковые/вертикальные
+        for (int i = 0; i < 120; i++)
+        {
+            sim.Advance(1.0 / 60.0);
+        }
+
+        Assert.Equal(0.0, sim.CaptureSnapshot().Speed, precision: 9);
+    }
+
     private static string RunFlight()
     {
         var sim = new WorldSimulation(0x51A7UL);

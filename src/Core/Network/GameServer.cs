@@ -41,6 +41,13 @@ public sealed class GameServer
     /// </summary>
     public double GravitationalParameter => _simulation.SystemModel.Mu;
 
+    /// <summary>Модель полёта, применяемая сервером (по умолчанию — элитовская).</summary>
+    public FlightMode FlightMode
+    {
+        get => _simulation.FlightMode;
+        set => _simulation.FlightMode = value;
+    }
+
     /// <summary>Количество подключённых игроков.</summary>
     public int ConnectionCount => _connections.Count;
 

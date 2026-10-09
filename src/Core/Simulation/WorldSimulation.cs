@@ -64,6 +64,7 @@ public sealed class WorldSimulation
     private Vector3D _velocity = Vector3D.Zero;
     private Quaternion _orientation = Quaternion.Identity;
     private Vector3D _angularVelocity = Vector3D.Zero;
+    private double _speed; // скалярная скорость для элитовской модели
 
     // Управление (сохраняется между тиками, как «положение РУД/стика»).
     private Vector3D _thrustCommand = Vector3D.Zero;   // (forward, strafe, lift)
@@ -111,6 +112,15 @@ public sealed class WorldSimulation
     /// (угловой момент сохраняется, корабль «кувыркается»).
     /// </summary>
     public double AngularAssistDamping { get; set; }
+
+    /// <summary>
+    /// Модель полёта. По умолчанию — <see cref="FlightMode.EliteAligned"/> (элитовская: скорость вдоль носа,
+    /// макс. скорость, тангаж/крен). <see cref="FlightMode.Newtonian"/> включает полную инерцию и гравитацию.
+    /// </summary>
+    public FlightMode FlightMode { get; set; } = FlightMode.EliteAligned;
+
+    /// <summary>Текущая скалярная скорость корабля (для элитовской модели).</summary>
+    public double Speed => _speed;
 
     /// <summary>Индекс текущей галактики.</summary>
     public int GalaxyIndex { get; private set; }
@@ -188,6 +198,7 @@ public sealed class WorldSimulation
         DockedBodyIndex = -1;
         _position = ShipSpawn;
         _velocity = Vector3D.Zero;
+        _speed = 0.0;
         _orientation = Quaternion.Identity;
         _angularVelocity = Vector3D.Zero;
         _thrustCommand = Vector3D.Zero;
@@ -223,7 +234,15 @@ public sealed class WorldSimulation
     private void IntegratePhysics(double deltaSeconds)
     {
         IntegrateRotation(deltaSeconds);
-        IntegrateTranslation(deltaSeconds);
+
+        if (FlightMode == FlightMode.Newtonian)
+        {
+            IntegrateTranslationNewtonian(deltaSeconds);
+        }
+        else
+        {
+            IntegrateTranslationElite(deltaSeconds);
+        }
     }
 
     private void IntegrateRotation(double deltaSeconds)
@@ -255,9 +274,35 @@ public sealed class WorldSimulation
         _orientation = _orientation.Integrate(_angularVelocity, deltaSeconds);
     }
 
-    private void IntegrateTranslation(double deltaSeconds)
+    /// <summary>
+    /// Элитовская модель: скорость всегда направлена вдоль носа, скаляр скорости меняется тягой
+    /// (тангаж/крен — для разворота). Корабль «летит туда, куда смотрит», как в Elite.
+    /// </summary>
+    private void IntegrateTranslationElite(double deltaSeconds)
     {
-        // Тяга в локальной системе корабля (с учётом латеральных/обратных двигателей).
+        // Органы управления: forward (throttle) увеличивает/уменьшает скорость, strafe/lift — нет.
+        double throttle = Math.Clamp(_thrustCommand.X, -1.0, 1.0);
+        if (throttle != 0.0)
+        {
+            _speed += throttle * _profile.SpeedAcceleration * deltaSeconds;
+            _speed = Math.Clamp(_speed, 0.0, _profile.MaxSpeed);
+
+            // Расход топлива пропорционален модулю тяги.
+            double burn = _profile.MassFlowRate(Math.Abs(throttle) * _profile.Thrust) * deltaSeconds;
+            Fuel = Math.Max(0.0, Fuel - burn);
+        }
+
+        // В элитовской модели поворот разворачивает вектор движения вместе с носом:
+        // скорость всегда направлена вдоль носа корабля.
+        _velocity = _orientation.Rotate(ShipAxes.Forward) * _speed;
+        _position += _velocity * deltaSeconds;
+    }
+
+    /// <summary>
+    /// Ньютоновская модель: скорость интегрируется независимо от ориентации, действует гравитация.
+    /// </summary>
+    private void IntegrateTranslationNewtonian(double deltaSeconds)
+    {
         double forward = _thrustCommand.X;
         double strafe = _thrustCommand.Y * _profile.LateralThrustFactor;
         double lift = _thrustCommand.Z * _profile.LateralThrustFactor;
@@ -279,6 +324,7 @@ public sealed class WorldSimulation
 
         _velocity = (_velocity + (acceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (FlightAssistDrag * deltaSeconds));
         _position += _velocity * deltaSeconds;
+        _speed = _velocity.Length;
 
         if (thrustMagnitude > 1e-6)
         {
@@ -296,6 +342,7 @@ public sealed class WorldSimulation
             SimTime,
             _position,
             _velocity,
+            _speed,
             _orientation,
             _angularVelocity,
             _thrustCommand,
@@ -340,6 +387,7 @@ public sealed class WorldSimulation
     {
         _position = position;
         _velocity = velocity;
+        _speed = velocity.Length;
         _orientation = orientation.Normalized();
         _angularVelocity = angularVelocity;
         _thrustCommand = Vector3D.Zero;

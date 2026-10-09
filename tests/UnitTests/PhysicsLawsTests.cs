@@ -126,7 +126,7 @@ public sealed class PhysicsLawsTests
     [Fact]
     public void FreeFall_ConservesSpecificEnergy()
     {
-        var sim = new WorldSimulation(0x0FFE1CEUL);
+        var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
         const double r0 = 30.0;
 
@@ -153,7 +153,7 @@ public sealed class PhysicsLawsTests
     [Fact]
     public void FreeFall_ConservesAngularMomentum()
     {
-        var sim = new WorldSimulation(0x0FFE1CEUL);
+        var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
         const double r0 = 30.0;
         double v = Astro.SoftenedCircularSpeed(mu, r0, WorldSimulation.GravitySoftening);
@@ -177,7 +177,7 @@ public sealed class PhysicsLawsTests
     [Fact]
     public void CircularOrbit_RadiusStaysStable()
     {
-        var sim = new WorldSimulation(0x0FFE1CEUL);
+        var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
         const double r0 = 30.0;
         double v = Astro.SoftenedCircularSpeed(mu, r0, WorldSimulation.GravitySoftening);
@@ -201,7 +201,7 @@ public sealed class PhysicsLawsTests
     [Fact]
     public void BoundOrbit_HasNegativeEnergy()
     {
-        var sim = new WorldSimulation(0x0FFE1CEUL);
+        var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
         const double r0 = 30.0;
         // Скорость ниже круговой — тело связано гравитацией.
@@ -214,7 +214,7 @@ public sealed class PhysicsLawsTests
     [Fact]
     public void EscapeOrbit_HasNonNegativeEnergy_AndEscapes()
     {
-        var sim = new WorldSimulation(0x0FFE1CEUL);
+        var sim = new WorldSimulation(0x0FFE1CEUL) { FlightMode = FlightMode.Newtonian };
         double mu = sim.SystemModel.Mu;
         const double r0 = 30.0;
         // Скорость выше скорости убегания — тело покидает систему.

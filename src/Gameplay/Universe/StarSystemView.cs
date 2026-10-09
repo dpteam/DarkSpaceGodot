@@ -56,6 +56,15 @@ public partial class StarSystemView : Node3D
     private float _pitch = 0.9f;
     private float _distance = 42.0f;
     private bool _dragging;
+    private Vector2 _pressPosition;
+    private bool _pressMoved;
+    private int _hovered = -1;
+
+    /// <summary>Радиус (в пикселях), в пределах которого клик по экрану выбирает планету.</summary>
+    private const float PickRadiusPixels = 56.0f;
+
+    /// <summary>Смещение мыши (в пикселях), после которого жест считается вращением камеры, а не кликом.</summary>
+    private const float DragThresholdPixels = 6.0f;
 
     /// <inheritdoc />
     public override void _Ready()
@@ -234,12 +243,19 @@ public partial class StarSystemView : Node3D
     {
         _simTime += delta * _timeScale;
 
-        foreach (PlanetNode planet in _planets)
+        UpdateHover();
+
+        for (int i = 0; i < _planets.Count; i++)
         {
+            PlanetNode planet = _planets[i];
             Vector3 position = ToGodot(OrbitalMechanics.PositionAt(planet.Orbit, _simTime));
             planet.Mesh.Position = position;
             planet.Mesh.RotateY((float)delta * 0.6f);
             planet.CurrentPosition = position;
+
+            // Подсветка объекта под курсором (легче целиться).
+            float scale = i == _hovered && i != _selected ? 1.3f : 1.0f;
+            planet.Mesh.Scale = new Vector3(scale, scale, scale);
         }
 
         if (_selected >= 0 && _selected < _planets.Count)
@@ -264,11 +280,19 @@ public partial class StarSystemView : Node3D
         {
             HandleMouseButton(button);
         }
-        else if (@event is InputEventMouseMotion motion && _dragging)
+        else if (@event is InputEventMouseMotion motion)
         {
-            _yaw -= motion.Relative.X * 0.005f;
-            _pitch = Mathf.Clamp(_pitch + (motion.Relative.Y * 0.005f), -1.4f, 1.4f);
-            UpdateCamera();
+            if (_dragging)
+            {
+                _yaw -= motion.Relative.X * 0.005f;
+                _pitch = Mathf.Clamp(_pitch + (motion.Relative.Y * 0.005f), -1.4f, 1.4f);
+                UpdateCamera();
+            }
+            else if (motion.Position.DistanceTo(_pressPosition) > DragThresholdPixels)
+            {
+                // Начали тянуть — это вращение камеры, а не выбор объекта.
+                _pressMoved = true;
+            }
         }
     }
 
@@ -304,9 +328,17 @@ public partial class StarSystemView : Node3D
         {
             case MouseButton.Left when button.Pressed:
                 _dragging = true;
+                _pressMoved = false;
+                _pressPosition = button.Position;
                 break;
             case MouseButton.Left:
                 _dragging = false;
+                if (!_pressMoved)
+                {
+                    // Это был клик (а не перетаскивание) — выбираем ближайший объект.
+                    TryPickPlanetAt(button.Position);
+                }
+
                 break;
             case MouseButton.WheelUp when button.Pressed:
                 _distance = Math.Max(MinDistance, _distance * 0.88f);
@@ -317,36 +349,68 @@ public partial class StarSystemView : Node3D
                 UpdateCamera();
                 break;
         }
-
-        if (button.ButtonIndex == MouseButton.Left && !button.Pressed && !_dragging)
-        {
-            TryPickPlanet(button.Position);
-        }
     }
 
-    private void TryPickPlanet(Vector2 screenPosition)
+    /// <summary>
+    /// Обновляет индекс планеты под курсором (для подсветки). Использует ту же экранную проекцию,
+    /// что и выбор, поэтому подсветка и клик совпадают.
+    /// </summary>
+    private void UpdateHover()
     {
-        Vector3 origin = _camera.ProjectRayOrigin(screenPosition);
-        Vector3 direction = _camera.ProjectRayNormal(screenPosition);
+        _hovered = -1;
+        if (_dragging)
+        {
+            return;
+        }
 
-        int hit = -1;
-        float bestT = float.MaxValue;
+        Vector2 mouse = GetViewport().GetMousePosition();
+        float bestScreen = PickRadiusPixels;
         for (int i = 0; i < _planets.Count; i++)
         {
-            float radius = Math.Max(0.6f, PlanetVisuals.Radius(_planets[i].Data.Type));
-            Vector3 oc = origin - _planets[i].CurrentPosition;
-            float b = oc.Dot(direction);
-            float c = oc.LengthSquared() - (radius * radius);
-            float discriminant = (b * b) - c;
-            if (discriminant < 0)
+            if (_camera.IsPositionBehind(_planets[i].CurrentPosition))
             {
                 continue;
             }
 
-            float t = -b - Mathf.Sqrt(discriminant);
-            if (t > 0 && t < bestT)
+            float screenDistance = _camera.UnprojectPosition(_planets[i].CurrentPosition).DistanceTo(mouse);
+            if (screenDistance < bestScreen)
             {
-                bestT = t;
+                bestScreen = screenDistance;
+                _hovered = i;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Выбирает планету по позиции на экране. Проецируем каждый объект на экран и берём ближайший
+    /// в пределах <see cref="PickRadiusPixels"/> пикселей — так по движущейся планете куда проще попасть.
+    /// </summary>
+    private void TryPickPlanetAt(Vector2 screenPosition)
+    {
+        int hit = -1;
+        float bestScreen = float.MaxValue;
+        float bestDepth = float.MaxValue;
+
+        for (int i = 0; i < _planets.Count; i++)
+        {
+            if (_camera.IsPositionBehind(_planets[i].CurrentPosition))
+            {
+                continue;
+            }
+
+            Vector2 sp = _camera.UnprojectPosition(_planets[i].CurrentPosition);
+            float screenDistance = sp.DistanceTo(screenPosition);
+            if (screenDistance > PickRadiusPixels)
+            {
+                continue;
+            }
+
+            // Если несколько объектов рядом — берём тот, что ближе к камере.
+            float depth = _camera.GlobalPosition.DistanceTo(_planets[i].CurrentPosition);
+            if (screenDistance < bestScreen - 1.0f || (Mathf.Abs(screenDistance - bestScreen) <= 1.0f && depth < bestDepth))
+            {
+                bestScreen = screenDistance;
+                bestDepth = depth;
                 hit = i;
             }
         }
