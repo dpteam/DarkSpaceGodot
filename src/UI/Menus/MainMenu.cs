@@ -42,6 +42,10 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         Log.AddSink(new GodotLogSink());
+
+        // Рандомизируем глобальный ГПСЧ, чтобы фон/«новая игра» отличались между запусками.
+        GD.Randomize();
+
         GameContext.SaveDirectory = ProjectSettings.GlobalizePath("user://saves");
 
         _background = GetNode<ColorRect>("Background");
