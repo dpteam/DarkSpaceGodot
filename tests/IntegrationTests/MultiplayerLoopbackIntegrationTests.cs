@@ -1,5 +1,6 @@
 using DarkSpace.Core.Network;
 using DarkSpace.Core.Simulation;
+using DarkSpace.Core.Systems.Physics;
 using Xunit;
 
 namespace DarkSpace.Tests.Integration;
@@ -134,5 +135,33 @@ public sealed class MultiplayerLoopbackIntegrationTests
         Assert.NotNull(client.Latest);
         Assert.Equal(server.CurrentSnapshot.Position, client.Latest!.Position);
         Assert.True(client.Latest.Position.Z < 0, "Тяга по -Z должна привести к отрицательной координате Z.");
+    }
+
+    [Fact]
+    public void ServerSimulation_ConservesEnergy_WithoutThrust()
+    {
+        // Без команд корабль движется только под гравитацией: удельная энергия должна сохраняться
+        // (проверяем тот же закон, что и в ядре, но сквозь сетевой слой).
+        var server = new GameServer(WorldSeed);
+        LoopbackTransport.CreatePair(out LoopbackTransport clientTransport, out LoopbackTransport serverTransport);
+        server.AddConnection(1, serverTransport);
+
+        double mu = server.GravitationalParameter;
+        double Energy(SimulationSnapshot s) => Astro.SoftenedSpecificEnergy(mu, WorldSimulation.GravitySoftening, s.Position, s.Velocity);
+
+        // Придаём импульс один раз, затем обнуляем тягу и даём двигаться только под гравитацией.
+        clientTransport.Send(new NetworkMessage(NetMessageType.Command, 1, 0, CommandCodec.Encode(new MoveCommand(1, 0, 1.0, 0.0, 0.3))));
+        server.Step(Dt);
+        clientTransport.Send(new NetworkMessage(NetMessageType.Command, 1, 1, CommandCodec.Encode(new MoveCommand(1, 1, 0.0, 0.0, 0.0))));
+        server.Step(Dt);
+        double e0 = Energy(server.CurrentSnapshot);
+
+        for (int i = 0; i < 2000; i++)
+        {
+            server.Step(Dt);
+        }
+
+        double e1 = Energy(server.CurrentSnapshot);
+        Assert.True(Math.Abs((e1 - e0) / e0) < 0.01, $"Энергия через сеть должна сохраняться (e0={e0:0.000}, e1={e1:0.000}).");
     }
 }

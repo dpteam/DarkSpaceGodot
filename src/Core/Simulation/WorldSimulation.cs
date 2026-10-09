@@ -6,6 +6,7 @@ using DarkSpace.Core.Systems.Economy;
 using DarkSpace.Core.Systems.Factions;
 using DarkSpace.Core.Systems.Items;
 using DarkSpace.Core.Systems.Orbital;
+using DarkSpace.Core.Systems.Physics;
 using DarkSpace.Core.Systems.Travel;
 using DarkSpace.Core.Utils;
 
@@ -21,26 +22,18 @@ namespace DarkSpace.Core.Simulation;
 /// шаг физики на фиксированный интервал времени.
 /// </para>
 /// <para>
-/// Модель пространства трёхмерная: <see cref="Vector3D"/>, тяга по трём осям, гравитация звезды
-/// (в начале координат). Одинаковый мировой сид + одинаковая последовательность команд дают
-/// одинаковый результат (детерминизм), поэтому сервер может быть авторитарным, а клиенты —
-/// воспроизводить состояние. Здесь не используется <see cref="System.Random"/> и нет зависимости от Godot.
+/// Физика строится на реальных законах (см. <see cref="Astro"/> и <see cref="ShipPhysicsProfile"/>):
+/// второй закон Ньютона (a = F/m, масса растёт с топливом), сглаженная гравитация звезды с тем же
+/// гравитационным параметром μ, что и у орбит планет, и ракетное уравнение Циолковского для топлива.
+/// Интегратор — полушаговый Эйлера (симплектический), устойчивый к дрейфу энергии орбиты.
+/// </para>
+/// <para>
+/// Детерминизм обязателен: одинаковый мировой сид + одинаковая последовательность команд дают
+/// одинаковый результат. Здесь не используется <see cref="System.Random"/> и нет зависимости от Godot.
 /// </para>
 /// </remarks>
 public sealed class WorldSimulation
 {
-    /// <summary>Ускорение, придаваемое единичной тягой (в условных единицах в секунду²).</summary>
-    public const double ThrustAcceleration = 24.0;
-
-    /// <summary>Коэффициент линейного сопротивления среды (в секунду).</summary>
-    public const double LinearDrag = 0.2;
-
-    /// <summary>
-    /// Гравитационный параметр звезды для динамики корабля (сглаженный, без сингулярности в ядре).
-    /// Гравитация добавляет «дрейф» к звезде, но не доминирует над тягой — так полёт остаётся аркадным.
-    /// </summary>
-    public const double StellarGravityParameter = 60.0;
-
     /// <summary>Длина сглаживания гравитации (делает притяжение конечным вблизи ядра звезды).</summary>
     public const double GravitySoftening = 8.0;
 
@@ -50,8 +43,8 @@ public sealed class WorldSimulation
     /// <summary>Стартовый баланс кредитов.</summary>
     public const double StartingCredits = 1000.0;
 
-    /// <summary>Максимальный запас топлива.</summary>
-    public const double MaxFuel = 100.0;
+    /// <summary>Доля топлива, расходуемая на один межгалактический прыжок.</summary>
+    public const double JumpFuelFraction = 0.25;
 
     /// <summary>Максимальное число сообщений чата, хранимых в снапшоте.</summary>
     public const int MaxChatLog = 50;
@@ -63,11 +56,12 @@ public sealed class WorldSimulation
     private readonly Dictionary<int, int> _cargo = new();
     private readonly List<string> _chatLog = new();
     private readonly Dictionary<FactionType, int> _reputation = new();
+    private readonly ShipPhysicsProfile _profile;
 
     private Vector3D _position = Vector3D.Zero;
     private Vector3D _velocity = Vector3D.Zero;
     private Vector3D _thrust = Vector3D.Zero;
-    private ShipData? _ship;
+    private ShipData? _jumpShip;
 
     /// <summary>Мировой сид вселенной.</summary>
     public ulong WorldSeed { get; }
@@ -81,8 +75,23 @@ public sealed class WorldSimulation
     /// <summary>Баланс кредитов.</summary>
     public double Credits { get; private set; } = StartingCredits;
 
-    /// <summary>Текущее топливо.</summary>
-    public double Fuel { get; private set; } = MaxFuel;
+    /// <summary>Остаток топлива (по массе).</summary>
+    public double Fuel { get; private set; }
+
+    /// <summary>Максимальный запас топлива (по массе).</summary>
+    public double MaxFuel => _profile.FuelMass;
+
+    /// <summary>Текущая полная масса корабля (сухая масса + топливо).</summary>
+    public double ShipMass => _profile.DryMass + Fuel;
+
+    /// <summary>Остаток характеристической скорости (бюджет Δv, по ракетному уравнению).</summary>
+    public double RemainingDeltaV => _profile.RemainingDeltaV(Fuel);
+
+    /// <summary>
+    /// Коэффициент сопротивления «ассистента полёта» (в секунду). По умолчанию 0 — чистый вакуум,
+    /// как в реальном космосе (энергия и угловой момент сохраняются).
+    /// </summary>
+    public double FlightAssistDrag { get; set; }
 
     /// <summary>Индекс текущей галактики.</summary>
     public int GalaxyIndex { get; private set; }
@@ -118,9 +127,12 @@ public sealed class WorldSimulation
     /// Создаёт новую симуляцию.
     /// </summary>
     /// <param name="worldSeed">Мировой сид вселенной.</param>
-    public WorldSimulation(ulong worldSeed)
+    /// <param name="profile">Физический профиль корабля игрока (по умолчанию — <see cref="ShipPhysicsProfile.Default"/>).</param>
+    public WorldSimulation(ulong worldSeed, ShipPhysicsProfile? profile = null)
     {
         WorldSeed = worldSeed;
+        _profile = profile ?? ShipPhysicsProfile.Default;
+        Fuel = _profile.FuelMass;
         SetCurrentSystem(0, 0);
     }
 
@@ -178,14 +190,29 @@ public sealed class WorldSimulation
 
         if (!Destroyed && DockedBodyIndex < 0)
         {
-            Vector3D gravity = ComputeStellarGravity(_position);
-            Vector3D acceleration = (_thrust * ThrustAcceleration) + gravity;
-            _velocity = (_velocity + (acceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (LinearDrag * deltaSeconds));
-            _position += _velocity * deltaSeconds;
+            IntegratePhysics(deltaSeconds);
         }
 
         SimTime += deltaSeconds;
         Tick++;
+    }
+
+    private void IntegratePhysics(double deltaSeconds)
+    {
+        double throttle = _thrust.Length;
+        Vector3D thrustAcceleration = _thrust * _profile.Acceleration(throttle > 1.0 ? 1.0 : throttle, Fuel);
+        Vector3D gravity = Astro.SoftenedGravityAcceleration(SystemModel.Mu, _position, GravitySoftening);
+        Vector3D acceleration = thrustAcceleration + gravity;
+
+        // Полушаговый (симплектический) Эйлера: сначала скорость, затем позиция.
+        _velocity = (_velocity + (acceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (FlightAssistDrag * deltaSeconds));
+        _position += _velocity * deltaSeconds;
+
+        if (throttle > 1e-6)
+        {
+            double burn = _profile.MassFlowRate(throttle) * deltaSeconds;
+            Fuel = Math.Max(0.0, Fuel - burn);
+        }
     }
 
     /// <summary>Возвращает неизменяемый снимок текущего состояния.</summary>
@@ -202,6 +229,8 @@ public sealed class WorldSimulation
             DockedBodyIndex,
             Credits,
             Fuel,
+            ShipMass,
+            RemainingDeltaV,
             GalaxyIndex,
             SystemIndex,
             SystemName,
@@ -218,18 +247,18 @@ public sealed class WorldSimulation
     /// <summary>Устанавливает репутацию игрока у фракции (с ограничением диапазона).</summary>
     public void SetReputation(FactionType faction, int value) => _reputation[faction] = ReputationSystem.Clamp(value);
 
-    private static Vector3D ComputeStellarGravity(Vector3D position)
+    /// <summary>
+    /// Устанавливает состояние корабля (позиция и скорость). Используется загрузкой сохранений,
+    /// точками спавна и тестами физических законов. Тяга и стыковка сбрасываются.
+    /// </summary>
+    /// <param name="position">Позиция корабля в системе.</param>
+    /// <param name="velocity">Скорость корабля.</param>
+    public void InitializeShip(Vector3D position, Vector3D velocity)
     {
-        double r = position.Length;
-        if (r < 1e-3)
-        {
-            return Vector3D.Zero;
-        }
-
-        // Сглаженная гравитация: a = -μ · r_vec / (r² + ε²)^(3/2) — конечна в ядре, плавна вовне.
-        double denominator = Math.Pow((r * r) + (GravitySoftening * GravitySoftening), 1.5);
-        double factor = StellarGravityParameter / denominator;
-        return position * -factor;
+        _position = position;
+        _velocity = velocity;
+        _thrust = Vector3D.Zero;
+        DockedBodyIndex = -1;
     }
 
     private void Apply(IGameCommand command)
@@ -314,11 +343,11 @@ public sealed class WorldSimulation
             return;
         }
 
-        _ship ??= ShipGenerator.GenerateShip(WorldSeed, ShipType.Cruiser);
+        _jumpShip ??= ShipGenerator.GenerateShip(WorldSeed, ShipType.Cruiser);
         ulong seed = SeedHelper.Combine(WorldSeed, "jump", (ulong)Tick ^ (ulong)jump.Sequence);
-        JumpResult result = BlackHoleTravel.ComputeJump(seed, _ship, jump.TargetGalaxyIndex);
+        JumpResult result = BlackHoleTravel.ComputeJump(seed, _jumpShip, jump.TargetGalaxyIndex);
 
-        Fuel = Math.Max(0.0, Fuel - 25.0);
+        Fuel = Math.Max(0.0, Fuel - (MaxFuel * JumpFuelFraction));
 
         if (result.Outcome == JumpOutcome.Destroyed)
         {

@@ -35,6 +35,12 @@ public sealed class GameServer
     /// <summary>Текущий снимок состояния мира.</summary>
     public SimulationSnapshot CurrentSnapshot => _simulation.CaptureSnapshot();
 
+    /// <summary>
+    /// Гравитационный параметр μ текущей системы — клиенты используют его для отрисовки орбит
+    /// и предсказания движения (единая физика клиента и сервера).
+    /// </summary>
+    public double GravitationalParameter => _simulation.SystemModel.Mu;
+
     /// <summary>Количество подключённых игроков.</summary>
     public int ConnectionCount => _connections.Count;
 

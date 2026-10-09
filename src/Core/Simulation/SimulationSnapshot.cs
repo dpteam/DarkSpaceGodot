@@ -19,7 +19,9 @@ namespace DarkSpace.Core.Simulation;
 /// <param name="TargetBodyIndex">Индекс выбранной планеты-цели, либо -1.</param>
 /// <param name="DockedBodyIndex">Индекс планеты, с которой корабль состыкован, либо -1.</param>
 /// <param name="Credits">Баланс кредитов.</param>
-/// <param name="Fuel">Текущее топливо.</param>
+/// <param name="Fuel">Остаток топлива (по массе).</param>
+/// <param name="ShipMass">Текущая полная масса корабля.</param>
+/// <param name="RemainingDeltaV">Остаток характеристической скорости (Δv).</param>
 /// <param name="GalaxyIndex">Индекс текущей галактики.</param>
 /// <param name="SystemIndex">Индекс текущей системы.</param>
 /// <param name="SystemName">Название текущей системы.</param>
@@ -39,6 +41,8 @@ public sealed record SimulationSnapshot(
     int DockedBodyIndex,
     double Credits,
     double Fuel,
+    double ShipMass,
+    double RemainingDeltaV,
     int GalaxyIndex,
     int SystemIndex,
     string SystemName,

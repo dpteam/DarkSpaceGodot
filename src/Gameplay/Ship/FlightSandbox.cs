@@ -179,7 +179,7 @@ public partial class FlightSandbox : Control
             $"Тик {s.Tick}   ·   система «{s.SystemName}» (галактика #{s.GalaxyIndex})\n" +
             $"Позиция  {s.Position.X,8:0.0} , {s.Position.Y,8:0.0}\n" +
             $"Скорость {s.Velocity.X,8:0.0} , {s.Velocity.Y,8:0.0}\n" +
-            $"Кредиты  {s.Credits,8:0}   ·   топливо {s.Fuel,5:0.0}\n" +
+            $"Кредиты  {s.Credits,8:0}   ·   топливо {s.Fuel,5:0.0}   ·   Δv {s.RemainingDeltaV,6:0}\n" +
             $"Трюм     {cargo} ед." +
             (s.Destroyed ? "\n[color=red]КОРАБЛЬ УНИЧТОЖЕН[/color]" : string.Empty);
     }
