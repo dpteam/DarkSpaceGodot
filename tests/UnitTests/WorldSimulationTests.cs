@@ -2,6 +2,7 @@ using DarkSpace.Core.Data;
 using DarkSpace.Core.Network;
 using DarkSpace.Core.Simulation;
 using DarkSpace.Core.Systems.Items;
+using DarkSpace.Core.Systems.Physics;
 using Xunit;
 
 namespace DarkSpace.Tests.Unit;
@@ -40,18 +41,21 @@ public sealed class WorldSimulationTests
     }
 
     [Fact]
-    public void Move_ChangesVelocityAndPosition()
+    public void Move_ThrustsAlongNose()
     {
         var sim = new WorldSimulation(1);
-        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0));
+        // Тяга вперёд должна разгонять корабль вдоль его носа (а не по мировым осям).
+        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0, 0.0));
         for (int i = 0; i < 30; i++)
         {
             sim.Advance(Dt);
         }
 
         SimulationSnapshot snap = sim.CaptureSnapshot();
-        Assert.True(snap.Velocity.X > 0);
-        Assert.True(snap.Position.X > 0);
+        Vector3D noseWorld = snap.Orientation.Rotate(ShipAxes.Forward);
+        Assert.True(Vector3D.Dot(snap.Velocity, noseWorld) > 0, "Скорость должна быть направлена вдоль носа.");
+        Assert.True(snap.Velocity.Length > 0);
+        Assert.True((snap.Position - WorldSimulation.ShipSpawn).Length > 0);
     }
 
     [Fact]

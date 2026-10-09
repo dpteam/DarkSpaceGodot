@@ -36,9 +36,14 @@ public static class CommandCodec
         switch (command)
         {
             case MoveCommand move:
-                obj["thrustX"] = move.ThrustX;
-                obj["thrustY"] = move.ThrustY;
-                obj["thrustZ"] = move.ThrustZ;
+                obj["forward"] = move.Forward;
+                obj["strafe"] = move.Strafe;
+                obj["lift"] = move.Lift;
+                break;
+            case RotateCommand rotate:
+                obj["pitch"] = rotate.Pitch;
+                obj["yaw"] = rotate.Yaw;
+                obj["roll"] = rotate.Roll;
                 break;
             case SetTargetCommand target:
                 obj["bodyIndex"] = target.BodyIndex;
@@ -94,9 +99,15 @@ public static class CommandCodec
                 CommandType.Move => new MoveCommand(
                     playerId,
                     sequence,
-                    (double?)obj["thrustX"] ?? 0.0,
-                    (double?)obj["thrustY"] ?? 0.0,
-                    (double?)obj["thrustZ"] ?? 0.0),
+                    (double?)obj["forward"] ?? 0.0,
+                    (double?)obj["strafe"] ?? 0.0,
+                    (double?)obj["lift"] ?? 0.0),
+                CommandType.Rotate => new RotateCommand(
+                    playerId,
+                    sequence,
+                    (double?)obj["pitch"] ?? 0.0,
+                    (double?)obj["yaw"] ?? 0.0,
+                    (double?)obj["roll"] ?? 0.0),
                 CommandType.SetTarget => new SetTargetCommand(playerId, sequence, (int?)obj["bodyIndex"] ?? -1),
                 CommandType.Dock => new DockCommand(playerId, sequence),
                 CommandType.Jump => new JumpCommand(playerId, sequence, (int?)obj["targetGalaxy"] ?? 0),

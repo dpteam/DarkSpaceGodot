@@ -68,13 +68,6 @@ size_flags_horizontal = 0
 theme_override_font_sizes/font_size = 22
 text = "Продолжить"
 
-[node name="SandboxButton" type="Button" parent="Layout/Menu"]
-custom_minimum_size = Vector2(300, 48)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_font_sizes/font_size = 22
-text = "Лётный тренажёр"
-
 [node name="SystemMapButton" type="Button" parent="Layout/Menu"]
 custom_minimum_size = Vector2(300, 48)
 layout_mode = 2

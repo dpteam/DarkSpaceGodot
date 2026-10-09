@@ -4,6 +4,7 @@ using DarkSpace.Core.Data;
 using DarkSpace.Core.Network;
 using DarkSpace.Core.Simulation;
 using DarkSpace.Core.Systems.Orbital;
+using DarkSpace.Core.Systems.Physics;
 using DarkSpace.Core.Utils.Logging;
 using DarkSpace.Gameplay;
 using DarkSpace.UI.Widgets;
@@ -12,20 +13,23 @@ using Godot;
 namespace DarkSpace.Gameplay.Ship;
 
 /// <summary>
-/// 3D-полёт по звёздной системе: корабль летает между планетами, обращающимися по орбитам,
-/// с наведением на цель и стыковкой. Как и тренажёр, работает через локальный хост
-/// (<see cref="GameServer"/> + <see cref="GameClient"/> поверх loopback) — тот же путь команд,
-/// что и в мультиплеере.
+/// 3D-полёт по звёздной системе в духе Frontier: корабль управляется как настоящий —
+/// органами управления задаётся <b>ориентация</b> (тангаж/рыскание/крен), а тяга идёт
+/// <b>вдоль носа</b> корабля. Скорость сохраняется (ньютоновская инерция), поэтому чтобы
+/// затормозить — нужно развернуться и дать тягу в обратную сторону.
 /// </summary>
 /// <remarks>
-/// Управление: W/S — вперёд/назад, A/D — влево/вправо, Space/Ctrl — вверх/вниз,
-/// T — сменить цель, F — стыковка, колесо — дистанция камеры, Esc — меню.
+/// Как и тренажёр, работает через локальный хост (<see cref="GameServer"/> + <see cref="GameClient"/>
+/// поверх loopback) — тот же путь команд, что и в мультиплеере.
+/// Управление: W/S — тангаж (нос вверх/вниз), A/D — рыскание (влево/вправо), Q/E — крен,
+/// Shift — тяга вперёд, Ctrl — обратная тяга, Space/C — вертикальные двигатели, T — цель,
+/// F — стыковка, колесо — дистанция камеры, Esc — меню.
 /// </remarks>
 public partial class SystemFlightView : Node3D
 {
     private const double FixedDelta = 1.0 / 60.0;
-    private const float CamMinDistance = 8.0f;
-    private const float CamMaxDistance = 60.0f;
+    private const float CamMinDistance = 6.0f;
+    private const float CamMaxDistance = 80.0f;
 
     private GameServer _server = null!;
     private GameClient _client = null!;
@@ -36,14 +40,18 @@ public partial class SystemFlightView : Node3D
     private Label _hud = null!;
     private Label _help = null!;
     private Label _targetInfo = null!;
+    private Label _velocityVector = null!;
 
     private readonly List<MeshInstance3D> _planetNodes = new();
 
     private double _accumulator;
     private long _commandSequence;
-    private Vector3D _lastThrust = new(999.0, 999.0, 999.0);
-    private float _camDistance = 22.0f;
+    private Vector3D _lastThrust = new(123.0, 123.0, 123.0);
+    private Vector3D _lastRotation = new(123.0, 123.0, 123.0);
+    private float _camDistance = 18.0f;
     private readonly HashSet<Key> _pressedLastFrame = new();
+
+    private Godot.Vector3 _camPosition;
 
     /// <inheritdoc />
     public override void _Ready()
@@ -54,18 +62,18 @@ public partial class SystemFlightView : Node3D
         _hud = GetNode<Label>("UI/Hud");
         _help = GetNode<Label>("UI/Help");
         _targetInfo = GetNode<Label>("UI/TargetInfo");
-        _help.Text = "W/S — вперёд/назад · A/D — влево/вправо · Space/Ctrl — вверх/вниз · T — цель · F — стыковка · Esc — меню";
+        _velocityVector = GetNode<Label>("UI/VelocityVector");
+        _help.Text = "W/S — тангаж · A/D — рыскание · Q/E — крен · Shift — тяга · Ctrl — назад · Space/C — вертикаль · T — цель · F — стыковка";
 
         StartLocalHost();
         BuildScene();
 
-        // Автоматически выбираем первую планету целью для наглядности.
         if (_model.BodyCount > 0)
         {
             _client.Send(new SetTargetCommand(1, _commandSequence++, 0));
         }
 
-        Log.Info("SystemFlightView", "3D-полёт по системе запущен (локальный хост).");
+        Log.Info("SystemFlightView", "3D-полёт запущен (локальный хост).");
     }
 
     private void StartLocalHost()
@@ -79,15 +87,7 @@ public partial class SystemFlightView : Node3D
 
         _commandSequence = 0;
         _accumulator = 0.0;
-
-        // Та же детерминированная генерация, что и в симуляции, — для отрисовки тел.
-        _model = StarSystemModel.Create(sessionGalaxy(), 0);
-    }
-
-    private GalaxyData sessionGalaxy()
-    {
-        // Текущая галактика сессии (по умолчанию индекс 0).
-        return GameContext.GetOrCreate().GetGalaxy(0);
+        _model = StarSystemModel.Create(GameContext.GetOrCreate().GetGalaxy(0), 0);
     }
 
     private void BuildScene()
@@ -103,7 +103,6 @@ public partial class SystemFlightView : Node3D
         };
         AddChild(new WorldEnvironment { Name = "Environment", Environment = environment });
 
-        // Звезда.
         (Color starColor, float energy) = PlanetVisuals.Star(_model.System.Star);
         var starMaterial = new StandardMaterial3D
         {
@@ -131,7 +130,6 @@ public partial class SystemFlightView : Node3D
             });
         }
 
-        // Планеты (позиции обновляются каждый кадр по орбитам).
         for (int i = 0; i < _model.BodyCount; i++)
         {
             PlanetVisuals.Palette palette = PlanetVisuals.For(_model.Body(i).Planet.Type);
@@ -155,18 +153,18 @@ public partial class SystemFlightView : Node3D
             _planetNodes.Add(mesh);
         }
 
-        // Корабль.
+        // Корабль: нос смотрит в -Z (как принято в Godot).
         var shipMaterial = new StandardMaterial3D
         {
             AlbedoColor = new Color(0.49f, 0.99f, 0.0f),
             EmissionEnabled = true,
             Emission = new Color(0.2f, 0.5f, 0.05f),
-            EmissionEnergyMultiplier = 0.5f,
+            EmissionEnergyMultiplier = 0.6f,
         };
         _shipNode = new Node3D { Name = "Ship" };
         _shipNode.AddChild(new MeshInstance3D
         {
-            Mesh = new PrismMesh { Size = new Vector3(1.0f, 0.8f, 2.4f) },
+            Mesh = new PrismMesh { Size = new Vector3(0.9f, 0.9f, 2.6f) },
             MaterialOverride = shipMaterial,
         });
         AddChild(_shipNode);
@@ -209,12 +207,88 @@ public partial class SystemFlightView : Node3D
             _client.Send(new DockCommand(1, _commandSequence++));
         }
 
+        Vector3D rotation = ReadRotation();
+        if (rotation.X != _lastRotation.X || rotation.Y != _lastRotation.Y || rotation.Z != _lastRotation.Z)
+        {
+            _client.Send(new RotateCommand(1, _commandSequence++, rotation.X, rotation.Y, rotation.Z));
+            _lastRotation = rotation;
+        }
+
         Vector3D thrust = ReadThrust();
         if (thrust.X != _lastThrust.X || thrust.Y != _lastThrust.Y || thrust.Z != _lastThrust.Z)
         {
             _client.Send(new MoveCommand(1, _commandSequence++, thrust.X, thrust.Y, thrust.Z));
             _lastThrust = thrust;
         }
+    }
+
+    private static Vector3D ReadRotation()
+    {
+        // pitch: W — нос вверх (−, см. знаки в физике); S — вниз.
+        double pitch = 0.0;
+        double yaw = 0.0;
+        double roll = 0.0;
+
+        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up))
+        {
+            pitch -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down))
+        {
+            pitch += 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))
+        {
+            yaw -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right))
+        {
+            yaw += 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.Q))
+        {
+            roll -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.E))
+        {
+            roll += 1.0;
+        }
+
+        return new Vector3D(pitch, yaw, roll);
+    }
+
+    private static Vector3D ReadThrust()
+    {
+        double forward = 0.0;
+        double lift = 0.0;
+
+        if (Input.IsKeyPressed(Key.Shift))
+        {
+            forward += 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.Ctrl))
+        {
+            forward -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.Space))
+        {
+            lift += 1.0;
+        }
+
+        if (Input.IsKeyPressed(Key.C))
+        {
+            lift -= 1.0;
+        }
+
+        // MoveCommand(forward, strafe, lift)
+        return new Vector3D(forward, 0.0, lift);
     }
 
     private void CycleTarget()
@@ -228,45 +302,6 @@ public partial class SystemFlightView : Node3D
         int current = _client.Latest?.TargetBodyIndex ?? -1;
         int next = current < 0 ? 0 : (current + 1) % count;
         _client.Send(new SetTargetCommand(1, _commandSequence++, next));
-    }
-
-    private static Vector3D ReadThrust()
-    {
-        double x = 0.0;
-        double y = 0.0; // орбитальная Y → «вперёд/назад»
-        double z = 0.0; // орбитальная Z → «вверх/вниз»
-
-        if (Input.IsKeyPressed(Key.A))
-        {
-            x -= 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.D))
-        {
-            x += 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.W))
-        {
-            y += 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.S))
-        {
-            y -= 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.Space))
-        {
-            z += 1.0;
-        }
-
-        if (Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.C))
-        {
-            z -= 1.0;
-        }
-
-        return new Vector3D(x, y, z).Length > 1.0 ? new Vector3D(x, y, z).Normalized() : new Vector3D(x, y, z);
     }
 
     private bool PressedOnce(Key key)
@@ -311,28 +346,29 @@ public partial class SystemFlightView : Node3D
             return;
         }
 
-        // Планеты — по орбитам на модельном времени.
         for (int i = 0; i < _planetNodes.Count; i++)
         {
             _planetNodes[i].Position = ToGodot(_model.BodyPosition(i, s.SimTime));
         }
 
-        // Корабль.
         Vector3 shipPos = ToGodot(s.Position);
         _shipNode.Position = shipPos;
 
-        Vector3 velocity = ToGodot(s.Velocity);
-        if (velocity.LengthSquared() > 0.01f)
-        {
-            // Разворот носом по направлению движения.
-            SafeLookAt(_shipNode, shipPos + velocity.Normalized());
-        }
+        // Ориентация корабля из кватерниона: строим базис (right, up, −forward).
+        Vector3 forward = ToGodot(s.Orientation.Rotate(ShipAxes.Forward));
+        Vector3 up = ToGodot(s.Orientation.Rotate(ShipAxes.Up));
+        Vector3 right = ToGodot(s.Orientation.Rotate(ShipAxes.Right));
+        _shipNode.Basis = new Basis(right, up, -forward);
 
-        // Камера — позади корабля.
-        Vector3 backward = -_shipNode.Transform.Basis.Z.Normalized();
-        Vector3 camPos = shipPos + (backward * _camDistance) + (Vector3.Up * 6.0f);
-        _camera.GlobalPosition = camPos;
+        // Камера — позади носа корабля (сглаженно).
+        Vector3 desiredCam = shipPos - (forward * _camDistance) + (up * (_camDistance * 0.28f));
+        _camPosition = _camPosition == Godot.Vector3.Zero
+            ? desiredCam
+            : _camPosition.Lerp(desiredCam, Mathf.Clamp(delta * 8.0f, 0.0f, 1.0f));
+        _camera.GlobalPosition = _camPosition;
         SafeLookAt(_camera, shipPos);
+
+        UpdateVelocityIndicator(s);
     }
 
     /// <summary>
@@ -351,6 +387,32 @@ public partial class SystemFlightView : Node3D
         node.LookAt(target, up);
     }
 
+    private void UpdateVelocityIndicator(SimulationSnapshot s)
+    {
+        // Стрелка вектора скорости относительно носа — показывает снос (как в Frontier/FE2).
+        Vector3 forward = ToGodot(s.Orientation.Rotate(ShipAxes.Forward));
+        Vector3 up = ToGodot(s.Orientation.Rotate(ShipAxes.Up));
+        Vector3 right = ToGodot(s.Orientation.Rotate(ShipAxes.Right));
+        Vector3 velocity = ToGodot(s.Velocity);
+
+        if (velocity.LengthSquared() < 0.01f)
+        {
+            _velocityVector.Text = string.Empty;
+            return;
+        }
+
+        var dir = velocity.Normalized();
+        float x = dir.Dot(right);
+        float y = dir.Dot(up);
+        float z = dir.Dot(-forward);
+
+        var viewport = GetViewport().GetVisibleRect().Size;
+        var center = new Godot.Vector2(viewport.X * 0.5f, viewport.Y * 0.5f);
+        var marker = center + new Godot.Vector2(x * 160.0f, -y * 160.0f);
+        _velocityVector.Position = new Godot.Vector2(marker.X - 40.0f, marker.Y - 14.0f);
+        _velocityVector.Text = z > 0 ? "◎" : "○";
+    }
+
     private void UpdateHud()
     {
         SimulationSnapshot? s = _client.Latest;
@@ -360,18 +422,16 @@ public partial class SystemFlightView : Node3D
             return;
         }
 
-        double speed = s.Velocity.Length;
         _hud.Text =
             $"Тик {s.Tick}   ·   система «{s.SystemName}» (галактика #{s.GalaxyIndex})\n" +
-            $"Скорость   {speed,8:0.0}   ·   масса {s.ShipMass,6:0.0}\n" +
+            $"Скорость   {s.Velocity.Length,8:0.0}   ·   масса {s.ShipMass,6:0.0}\n" +
             $"Δv         {s.RemainingDeltaV,8:0.0}   ·   топливо {s.Fuel,6:0.0}\n" +
             $"Кредиты    {s.Credits,8:0}" +
             (s.Destroyed ? "\n[color=red]КОРАБЛЬ УНИЧТОЖЕН[/color]" : string.Empty);
 
         if (s.DockedBodyIndex >= 0)
         {
-            PlanetData planet = _model.Body(s.DockedBodyIndex).Planet;
-            _targetInfo.Text = $"СОСТЫКОВАНО: {planet.Name}";
+            _targetInfo.Text = $"СОСТЫКОВАНО: {_model.Body(s.DockedBodyIndex).Planet.Name}";
             return;
         }
 
@@ -384,7 +444,7 @@ public partial class SystemFlightView : Node3D
         }
         else
         {
-            _targetInfo.Text = "Цель не выбрана (T — выбрать ближайшую/следующую)";
+            _targetInfo.Text = "Цель не выбрана (T — выбрать)";
         }
     }
 

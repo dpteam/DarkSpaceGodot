@@ -83,7 +83,8 @@ public sealed class NetworkFoundationTests
         var client = new GameClient(clientTransport);
         server.AddConnection(1, serverTransport);
 
-        client.Send(new MoveCommand(1, 0, 1.0, 0.0));
+        // Strafe вправо (локально) при единичной ориентации даёт мировое +X.
+        client.Send(new MoveCommand(1, 0, 0.0, 1.0));
         server.Step(1.0 / 30.0);
 
         Assert.NotNull(client.Latest);
