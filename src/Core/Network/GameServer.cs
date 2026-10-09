@@ -32,6 +32,14 @@ public sealed class GameServer
         _simulation = new WorldSimulation(worldSeed);
     }
 
+    /// <summary>
+    /// Перемещает авторитарную симуляцию сервера в заданную систему галактики.
+    /// </summary>
+    /// <param name="galaxyIndex">Индекс галактики.</param>
+    /// <param name="systemIndex">Индекс системы.</param>
+    public void SetCurrentSystem(int galaxyIndex, int systemIndex)
+        => _simulation.SetCurrentSystem(galaxyIndex, systemIndex);
+
     /// <summary>Текущий снимок состояния мира.</summary>
     public SimulationSnapshot CurrentSnapshot => _simulation.CaptureSnapshot();
 

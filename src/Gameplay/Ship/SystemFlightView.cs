@@ -101,7 +101,21 @@ public partial class SystemFlightView : Node3D
 
         _commandSequence = 0;
         _accumulator = 0.0;
-        _model = StarSystemModel.Create(GameContext.GetOrCreate().GetGalaxy(0), 0);
+
+        // Ищем первую систему галактики со станцией (для наглядной демонстрации торговли).
+        GalaxyData galaxy = GameContext.GetOrCreate().GetGalaxy(0);
+        int systemIndex = 0;
+        for (int s = 0; s < galaxy.StarCount; s++)
+        {
+            if (StarSystemModel.Create(galaxy, s).HasStation)
+            {
+                systemIndex = s;
+                break;
+            }
+        }
+
+        _server.SetCurrentSystem(0, systemIndex);
+        _model = StarSystemModel.Create(galaxy, systemIndex);
     }
 
     private void BuildScene()
