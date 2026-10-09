@@ -32,6 +32,21 @@ public static class SystemScale
     /// <summary>Зазор между поверхностью планеты и точкой стыковки (SU).</summary>
     public const double DockingMargin = 6.0;
 
+    /// <summary>Радиус станции (SU).</summary>
+    public const double StationRadius = 4.0;
+
+    /// <summary>Зазор между станцией и точкой стыковки (SU).</summary>
+    public const double StationDockMargin = 5.0;
+
+    /// <summary>Отступ орбиты станции от поверхности планеты-хозяина (SU).</summary>
+    public const double StationOrbitMargin = 30.0;
+
+    /// <summary>Минимальный период обращения станции вокруг планеты (с).</summary>
+    public const double StationPeriodMinSeconds = 90.0;
+
+    /// <summary>Максимальный период обращения станции вокруг планеты (с).</summary>
+    public const double StationPeriodMaxSeconds = 240.0;
+
     /// <summary>Максимальная большая полуось, до которой тянется геометрическое распределение (SU).</summary>
     public const double MaxOrbit = 9000.0;
 

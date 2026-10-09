@@ -44,7 +44,11 @@ public partial class SystemFlightView : Node3D
 
     private Camera3D _camera = null!;
     private MeshInstance3D _starNode = null!;
+    private MeshInstance3D _stationNode = null!;
     private ShipHud _hud = null!;
+    private MarketPanel _marketPanel = null!;
+    private bool _marketOpen;
+    private bool _prevDockedStation;
     private Label _status = null!;
     private Label _targetInfo = null!;
     private Label _help = null!;
@@ -67,10 +71,12 @@ public partial class SystemFlightView : Node3D
         GameContext.EnsureSaveDirectory();
 
         _hud = GetNode<ShipHud>("Hud/Scanner");
+        _marketPanel = GetNode<MarketPanel>("Hud/Market");
         _status = GetNode<Label>("Hud/Status");
         _targetInfo = GetNode<Label>("Hud/TargetInfo");
         _help = GetNode<Label>("Hud/Help");
-        _help.Text = "W/S — тангаж · A/D — крен · Q/E — рыскание · Shift — разгон · Ctrl — торможение · T — цель · F — стыковка · Esc — меню";
+        _help.Text = "W/S — тангаж · A/D — крен · Q/E — рыскание · Shift — разгон · Ctrl — торможение · T — цель · F — планета · G — станция · M — рынок · Esc — меню";
+        _marketPanel.Visible = false;
 
         StartLocalHost();
         BuildScene();
@@ -164,8 +170,44 @@ public partial class SystemFlightView : Node3D
             _planetNodes.Add(mesh);
         }
 
+        BuildStation();
         _camera = new Camera3D { Name = "Camera", Current = true, Fov = 78.0f, Near = 0.1f, Far = CameraFar };
         AddChild(_camera);
+    }
+
+    private void BuildStation()
+    {
+        if (!_model.HasStation)
+        {
+            _stationNode = new MeshInstance3D { Visible = false };
+            AddChild(_stationNode);
+            return;
+        }
+
+        float r = (float)SystemScale.StationRadius;
+        var material = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.6f, 0.65f, 0.7f),
+            Metallic = 0.6f,
+            Roughness = 0.4f,
+            EmissionEnabled = true,
+            Emission = new Color(0.1f, 0.3f, 0.4f),
+            EmissionEnergyMultiplier = 0.5f,
+        };
+
+        // Корпус станции: куб с «ушами» (упрощённый Кориолис).
+        _stationNode = new MeshInstance3D
+        {
+            Name = "Station",
+            Mesh = new BoxMesh { Size = new Vector3(r, r, r) },
+            MaterialOverride = material,
+        };
+        _stationNode.AddChild(new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(r * 0.4f, r * 1.8f, r * 0.4f) },
+            MaterialOverride = material,
+        });
+        AddChild(_stationNode);
     }
 
     private void BuildStardust()
@@ -208,7 +250,8 @@ public partial class SystemFlightView : Node3D
     /// <inheritdoc />
     public override void _Process(double delta)
     {
-        if (Input.IsKeyPressed(Key.Escape))
+        // Esc закрывает рынок, если он открыт; иначе — выход в меню.
+        if (Input.IsKeyPressed(Key.Escape) && !_marketOpen)
         {
             GetTree().ChangeSceneToFile("res://src/UI/Menus/MainMenu.tscn");
             return;
@@ -237,6 +280,34 @@ public partial class SystemFlightView : Node3D
 
     private void HandleCommands()
     {
+        // Экран рынка: управление только выбором товара и торговлей.
+        if (_marketOpen)
+        {
+            if (PressedOnce(Key.M) || PressedOnce(Key.Escape))
+            {
+                _marketOpen = false;
+            }
+            else if (PressedOnce(Key.Up) || PressedOnce(Key.W))
+            {
+                _marketPanel.Selected = System.Math.Max(0, _marketPanel.Selected - 1);
+            }
+            else if (PressedOnce(Key.Down) || PressedOnce(Key.S))
+            {
+                int count = _client.Latest?.Market.Count ?? 0;
+                _marketPanel.Selected = System.Math.Min(count - 1, _marketPanel.Selected + 1);
+            }
+            else if (PressedOnce(Key.B))
+            {
+                _client.Send(new BuyCommodityCommand(1, _commandSequence++, _marketPanel.Selected, 1));
+            }
+            else if (PressedOnce(Key.N))
+            {
+                _client.Send(new SellCommodityCommand(1, _commandSequence++, _marketPanel.Selected, 1));
+            }
+
+            return;
+        }
+
         if (PressedOnce(Key.T))
         {
             CycleTarget();
@@ -245,6 +316,17 @@ public partial class SystemFlightView : Node3D
         if (PressedOnce(Key.F))
         {
             _client.Send(new DockCommand(1, _commandSequence++));
+        }
+
+        if (PressedOnce(Key.G))
+        {
+            _client.Send(new DockStationCommand(1, _commandSequence++));
+        }
+
+        if (PressedOnce(Key.M) && (_client.Latest?.DockedStation ?? false))
+        {
+            _marketOpen = true;
+            _marketPanel.Selected = 0;
         }
 
         Vector3D rotation = ReadRotation();
@@ -359,6 +441,11 @@ public partial class SystemFlightView : Node3D
         {
             _planetNodes[i].Position = ToGodot(_model.BodyPosition(i, s.SimTime)) - ship;
         }
+
+        if (_model.HasStation)
+        {
+            _stationNode.Position = ToGodot(_model.StationPosition(s.SimTime)) - ship;
+        }
     }
 
     private void UpdateCamera(SimulationSnapshot s)
@@ -412,7 +499,7 @@ public partial class SystemFlightView : Node3D
     private void UpdateHud(SimulationSnapshot s)
     {
         _hud.MaxSpeed = ShipPhysicsProfile.Default.MaxSpeed;
-        _hud.ScannerRange = 90f;
+        _hud.ScannerRange = 300f;
         _hud.Snapshot = s;
 
         _hud.Blips.Clear();
@@ -424,20 +511,56 @@ public partial class SystemFlightView : Node3D
             _hud.Blips.Add(new ShipHud.ScannerBlip((float)localRight, (float)localForward, localForward > 0, i == s.TargetBodyIndex));
         }
 
+        if (_model.HasStation)
+        {
+            Vector3D rel = _model.StationPosition(s.SimTime) - s.Position;
+            double localRight = Vector3D.Dot(rel, s.Orientation.Rotate(ShipAxes.Right));
+            double localForward = Vector3D.Dot(rel, s.Orientation.Rotate(ShipAxes.Forward));
+            _hud.Blips.Add(new ShipHud.ScannerBlip((float)localRight, (float)localForward, localForward > 0, false));
+        }
+
         _status.Text =
             $"Скорость {s.Speed:0.0}\n" +
             $"Δv {s.RemainingDeltaV:0}\n" +
             $"Топливо {s.Fuel:0.0}";
 
+        // Рынок: если состыкованы — панель доступна, иначе закрывается.
+        if (!s.DockedStation)
+        {
+            _marketOpen = false;
+        }
+
+        _marketPanel.Visible = _marketOpen;
+        _marketPanel.Snapshot = s;
+
+        if (s.DockedStation)
+        {
+            _targetInfo.Text = $"СТЫКОВКА: «{s.StationName}»   → M: рынок   ·   тангаж для отхода";
+            return;
+        }
+
         if (s.DockedBodyIndex >= 0)
         {
-            _targetInfo.Text = $"СОСТЫКОВАНО: {_model.Body(s.DockedBodyIndex).Planet.Name}";
+            _targetInfo.Text = $"ПОСАДКА: {_model.Body(s.DockedBodyIndex).Planet.Name}";
+            return;
         }
-        else if (s.TargetBodyIndex >= 0)
+
+        // Подсказка о стыковке со станцией, если близко.
+        if (_model.HasStation)
+        {
+            double stationDistance = _model.DistanceToStation(s.Position, s.SimTime);
+            if (stationDistance <= _model.StationDockRadius * 3.0)
+            {
+                _targetInfo.Text = $"Станция «{s.StationName}» · {stationDistance:0.0} ед.   → G: стыковка";
+                return;
+            }
+        }
+
+        if (s.TargetBodyIndex >= 0)
         {
             SystemBody body = _model.Body(s.TargetBodyIndex);
             double distance = _model.DistanceToBody(s.TargetBodyIndex, s.Position, s.SimTime);
-            string prompt = distance <= _model.DockRadius(s.TargetBodyIndex) ? "   → F: стыковка" : string.Empty;
+            string prompt = distance <= _model.DockRadius(s.TargetBodyIndex) ? "   → F: посадка" : string.Empty;
             _targetInfo.Text = $"Цель: {body.Planet.Name}  ·  {distance:0.0} ед.{prompt}";
         }
         else

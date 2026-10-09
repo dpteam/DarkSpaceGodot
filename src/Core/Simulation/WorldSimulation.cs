@@ -53,6 +53,7 @@ public sealed class WorldSimulation
 
     private readonly Queue<IGameCommand> _pending = new();
     private readonly Dictionary<int, int> _cargo = new();
+    private readonly Dictionary<int, int> _tradeCargo = new();
     private readonly List<string> _chatLog = new();
     private readonly Dictionary<FactionType, int> _reputation = new();
     private readonly ShipPhysicsProfile _profile;
@@ -143,6 +144,15 @@ public sealed class WorldSimulation
     /// <summary>Индекс планеты, с которой корабль состыкован, либо -1.</summary>
     public int DockedBodyIndex { get; private set; } = -1;
 
+    /// <summary>Состыкован ли корабль со станцией (открывает доступ к рынку).</summary>
+    public bool DockedStation { get; private set; }
+
+    /// <summary>Название станции текущей системы (или пустая строка).</summary>
+    public string StationName => SystemModel.Station?.Name ?? string.Empty;
+
+    /// <summary>Торговый трюм: id товара → количество (только для чтения, для UI).</summary>
+    public IReadOnlyDictionary<int, int> TradeCargo => _tradeCargo;
+
     /// <summary>Уничтожен ли корабль (после неудачного прыжка).</summary>
     public bool Destroyed { get; private set; }
 
@@ -193,6 +203,7 @@ public sealed class WorldSimulation
         Faction = model.System.ControllingFaction;
         TargetBodyIndex = -1;
         DockedBodyIndex = -1;
+        DockedStation = false;
         _position = ShipSpawn;
         _velocity = Vector3D.Zero;
         _speed = 0.0;
@@ -219,7 +230,7 @@ public sealed class WorldSimulation
             Apply(_pending.Dequeue());
         }
 
-        if (!Destroyed && DockedBodyIndex < 0)
+        if (!Destroyed && DockedBodyIndex < 0 && !DockedStation)
         {
             IntegratePhysics(deltaSeconds);
         }
@@ -346,6 +357,10 @@ public sealed class WorldSimulation
             _rotationCommand,
             TargetBodyIndex,
             DockedBodyIndex,
+            DockedStation,
+            StationName,
+            new Dictionary<int, int>(_tradeCargo),
+            CaptureMarket(),
             Credits,
             Fuel,
             ShipMass,
@@ -362,6 +377,20 @@ public sealed class WorldSimulation
 
     /// <summary>Возвращает репутацию игрока у фракции (0, если не задана).</summary>
     public int ReputationFor(FactionType faction) => _reputation.GetValueOrDefault(faction);
+
+    /// <summary>Строит котировки рынка станции для снимка состояния.</summary>
+    private IReadOnlyList<CommodityQuote> CaptureMarket()
+    {
+        var quotes = new List<CommodityQuote>(CommodityCatalog.Count);
+        StationMarket market = SystemModel.Market;
+        for (int id = 0; id < CommodityCatalog.Count; id++)
+        {
+            Commodity c = CommodityCatalog.GetById(id);
+            quotes.Add(new CommodityQuote(id, c.Name, c.Unit, market.BuyPrice(id), market.SellPrice(id), market.Stock(id)));
+        }
+
+        return quotes;
+    }
 
     /// <summary>Устанавливает репутацию игрока у фракции (с ограничением диапазона).</summary>
     public void SetReputation(FactionType faction, int value) => _reputation[faction] = ReputationSystem.Clamp(value);
@@ -412,6 +441,18 @@ public sealed class WorldSimulation
                 ApplyDock(dock);
                 break;
 
+            case DockStationCommand:
+                ApplyDockStation();
+                break;
+
+            case BuyCommodityCommand buyCommodity:
+                ApplyBuyCommodity(buyCommodity);
+                break;
+
+            case SellCommodityCommand sellCommodity:
+                ApplySellCommodity(sellCommodity);
+                break;
+
             case JumpCommand jump:
                 ApplyJump(jump);
                 break;
@@ -444,6 +485,12 @@ public sealed class WorldSimulation
             DockedBodyIndex = -1;
         }
 
+        if (thrust.Length > 1e-6 && Math.Abs(move.Forward) > 1e-6 && DockedStation)
+        {
+            // Отход от станции по тяге вперёд.
+            DockedStation = false;
+        }
+
         _thrustCommand = thrust.Length > 1.0 ? thrust.Normalized() : thrust;
     }
 
@@ -471,6 +518,86 @@ public sealed class WorldSimulation
             _rotationCommand = Vector3D.Zero;
             _angularVelocity = Vector3D.Zero;
         }
+    }
+
+    private void ApplyDockStation()
+    {
+        if (Destroyed || DockedStation || !SystemModel.HasStation)
+        {
+            return;
+        }
+
+        double distance = SystemModel.DistanceToStation(_position, SimTime);
+        if (distance <= SystemModel.StationDockRadius)
+        {
+            DockedStation = true;
+            DockedBodyIndex = -1;
+            _position = SystemModel.StationPosition(SimTime);
+            _velocity = Vector3D.Zero;
+            _thrustCommand = Vector3D.Zero;
+            _rotationCommand = Vector3D.Zero;
+            _angularVelocity = Vector3D.Zero;
+        }
+    }
+
+    private void ApplyBuyCommodity(BuyCommodityCommand buy)
+    {
+        if (!DockedStation || buy.Quantity <= 0 || buy.CommodityId < 0 || buy.CommodityId >= CommodityCatalog.Count)
+        {
+            return;
+        }
+
+        StationMarket market = SystemModel.Market;
+        int available = market.Stock(buy.CommodityId);
+        int quantity = Math.Min(buy.Quantity, available);
+        if (quantity <= 0)
+        {
+            return;
+        }
+
+        int unitPrice = market.BuyPrice(buy.CommodityId);
+        long total = (long)unitPrice * quantity;
+        if (Credits < total)
+        {
+            quantity = (int)Math.Min(quantity, Credits / unitPrice);
+            if (quantity <= 0)
+            {
+                return;
+            }
+
+            total = (long)unitPrice * quantity;
+        }
+
+        Credits -= total;
+        _tradeCargo[buy.CommodityId] = _tradeCargo.GetValueOrDefault(buy.CommodityId) + quantity;
+        market.RemoveStock(buy.CommodityId, quantity);
+    }
+
+    private void ApplySellCommodity(SellCommodityCommand sell)
+    {
+        if (!DockedStation || sell.Quantity <= 0 || sell.CommodityId < 0 || sell.CommodityId >= CommodityCatalog.Count)
+        {
+            return;
+        }
+
+        int owned = _tradeCargo.GetValueOrDefault(sell.CommodityId);
+        int quantity = Math.Min(sell.Quantity, owned);
+        if (quantity <= 0)
+        {
+            return;
+        }
+
+        StationMarket market = SystemModel.Market;
+        int unitPrice = market.SellPrice(sell.CommodityId);
+        Credits += (double)unitPrice * quantity;
+
+        _tradeCargo[sell.CommodityId] = owned - quantity;
+        if (_tradeCargo[sell.CommodityId] <= 0)
+        {
+            _tradeCargo.Remove(sell.CommodityId);
+        }
+
+        market.AddStock(sell.CommodityId, quantity);
     }
 
     private void ApplyJump(JumpCommand jump)

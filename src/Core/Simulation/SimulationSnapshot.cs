@@ -23,6 +23,10 @@ namespace DarkSpace.Core.Simulation;
 /// <param name="Rotation">Текущая команда вращения (тангаж/рыскание/крен).</param>
 /// <param name="TargetBodyIndex">Индекс выбранной планеты-цели, либо -1.</param>
 /// <param name="DockedBodyIndex">Индекс планеты, с которой корабль состыкован, либо -1.</param>
+/// <param name="DockedStation">Состыкован ли корабль со станцией (доступен рынок).</param>
+/// <param name="StationName">Название станции системы, либо пустая строка.</param>
+/// <param name="TradeCargo">Торговый трюм (id товара → количество).</param>
+/// <param name="Market">Котировки рынка станции (пусто, если станции нет).</param>
 /// <param name="Credits">Баланс кредитов.</param>
 /// <param name="Fuel">Остаток топлива (по массе).</param>
 /// <param name="ShipMass">Текущая полная масса корабля.</param>
@@ -48,6 +52,10 @@ public sealed record SimulationSnapshot(
     Vector3D Rotation,
     int TargetBodyIndex,
     int DockedBodyIndex,
+    bool DockedStation,
+    string StationName,
+    IReadOnlyDictionary<int, int> TradeCargo,
+    IReadOnlyList<DarkSpace.Core.Systems.Economy.CommodityQuote> Market,
     double Credits,
     double Fuel,
     double ShipMass,
