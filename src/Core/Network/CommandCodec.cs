@@ -50,6 +50,16 @@ public static class CommandCodec
                 break;
             case DockCommand:
                 break;
+            case DockStationCommand:
+                break;
+            case BuyCommodityCommand buyCommodity:
+                obj["commodityId"] = buyCommodity.CommodityId;
+                obj["quantity"] = buyCommodity.Quantity;
+                break;
+            case SellCommodityCommand sellCommodity:
+                obj["commodityId"] = sellCommodity.CommodityId;
+                obj["quantity"] = sellCommodity.Quantity;
+                break;
             case JumpCommand jump:
                 obj["targetGalaxy"] = jump.TargetGalaxyIndex;
                 break;
@@ -110,6 +120,9 @@ public static class CommandCodec
                     (double?)obj["roll"] ?? 0.0),
                 CommandType.SetTarget => new SetTargetCommand(playerId, sequence, (int?)obj["bodyIndex"] ?? -1),
                 CommandType.Dock => new DockCommand(playerId, sequence),
+                CommandType.DockStation => new DockStationCommand(playerId, sequence),
+                CommandType.BuyCommodity => new BuyCommodityCommand(playerId, sequence, (int?)obj["commodityId"] ?? -1, (int?)obj["quantity"] ?? 0),
+                CommandType.SellCommodity => new SellCommodityCommand(playerId, sequence, (int?)obj["commodityId"] ?? -1, (int?)obj["quantity"] ?? 0),
                 CommandType.Jump => new JumpCommand(playerId, sequence, (int?)obj["targetGalaxy"] ?? 0),
                 CommandType.BuyItem => new BuyItemCommand(playerId, sequence, (int?)obj["itemId"] ?? -1, (int?)obj["quantity"] ?? 0),
                 CommandType.SellItem => new SellItemCommand(playerId, sequence, (int?)obj["itemId"] ?? -1, (int?)obj["quantity"] ?? 0),

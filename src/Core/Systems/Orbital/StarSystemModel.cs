@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DarkSpace.Core.Data;
 using DarkSpace.Core.Generation;
+using DarkSpace.Core.Systems.Economy;
 using DarkSpace.Core.Systems.Physics;
 
 namespace DarkSpace.Core.Systems.Orbital;
@@ -37,6 +38,14 @@ public sealed class StarSystemModel
             double radius = SystemScale.PlanetRadius(planet.Type);
             _bodies.Add(new SystemBody(i, orbit, planet, radius));
         }
+
+        // Станция (если есть) обращается вокруг первой планеты.
+        if (_bodies.Count > 0)
+        {
+            Station = StationGenerator.GenerateStation(system, _bodies[0].Radius, 0);
+        }
+
+        Market = new StationMarket(system.Economy, system.Seed);
     }
 
     /// <summary>Данные системы.</summary>
@@ -47,6 +56,15 @@ public sealed class StarSystemModel
 
     /// <summary>Радиус звезды в условных единицах системы.</summary>
     public double StarRadius { get; }
+
+    /// <summary>Космическая станция системы (или <see langword="null"/>, если станции нет).</summary>
+    public StationData? Station { get; }
+
+    /// <summary>Рынок станции (цены и запасы зависят от экономики системы).</summary>
+    public StationMarket Market { get; }
+
+    /// <summary>Есть ли в системе станция.</summary>
+    public bool HasStation => Station is not null;
 
     /// <summary>Планеты системы вместе с орбитами.</summary>
     public IReadOnlyList<SystemBody> Bodies => _bodies;
@@ -99,6 +117,29 @@ public sealed class StarSystemModel
 
     /// <summary>Радиус стыковки с планетой: поверхность планеты плюс зазор.</summary>
     public double DockRadius(int bodyIndex) => Body(bodyIndex).Radius + SystemScale.DockingMargin;
+
+    /// <summary>Положение станции в заданный момент времени (обращается вокруг планеты-хозяина).</summary>
+    /// <param name="timeSeconds">Время, сек.</param>
+    /// <returns>Позиция станции или <see cref="Vector3D.Zero"/>, если станции нет.</returns>
+    public Vector3D StationPosition(double timeSeconds)
+    {
+        if (Station is not { } station)
+        {
+            return Vector3D.Zero;
+        }
+
+        Vector3D host = BodyPosition(station.HostBodyIndex, timeSeconds);
+        double angle = station.OrbitPhase + (Math.Tau * timeSeconds / station.PeriodSeconds);
+        var offset = new Vector3D(Math.Cos(angle) * station.OrbitRadius, Math.Sin(angle) * station.OrbitRadius, 0.0);
+        return host + offset;
+    }
+
+    /// <summary>Радиус стыковки со станцией: радиус станции плюс зазор.</summary>
+    public double StationDockRadius => SystemScale.StationRadius + SystemScale.StationDockMargin;
+
+    /// <summary>Расстояние от точки до станции в заданный момент времени.</summary>
+    public double DistanceToStation(Vector3D position, double timeSeconds)
+        => (StationPosition(timeSeconds) - position).Length;
 
     /// <summary>
     /// Возвращает индекс ближайшей планеты к точке, либо -1, если планет нет.

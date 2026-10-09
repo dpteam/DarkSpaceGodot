@@ -331,3 +331,22 @@ public enum JumpOutcome
     /// <summary>Корабль уничтожен при прыжке.</summary>
     Destroyed,
 }
+
+/// <summary>Тип космической станции.</summary>
+public enum StationType
+{
+    /// <summary>Кориолис — классическая вращающаяся станция-куб (как в Elite).</summary>
+    Coriolis,
+
+    /// <summary>Додо — тяжёлая станция-додекаэдр.</summary>
+    Dodo,
+
+    /// <summary>Тор — кольцевая станция.</summary>
+    Torus,
+
+    /// <summary>Икосаэдр — станция-многогранник.</summary>
+    Icosahedral,
+
+    /// <summary>Оцеллус — небольшая станция.</summary>
+    Ocellus,
+}
