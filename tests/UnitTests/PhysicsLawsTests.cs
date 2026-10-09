@@ -100,15 +100,16 @@ public sealed class PhysicsLawsTests
     public void RocketEquation_NumericIntegration_MatchesClosedForm()
     {
         // Численно интегрируем разгон в вакууме и сравниваем достигнутую Δv с формулой Циолковского.
-        ShipPhysicsProfile profile = new(DryMass: 50.0, FuelMass: 50.0, Thrust: 4000.0, ExhaustVelocity: 1500.0);
+        ShipPhysicsProfile profile = ShipPhysicsProfile.Default;
         const double dt = 1e-3;
 
         double velocity = 0.0;
         double fuel = profile.FuelMass;
         while (fuel > 0.0)
         {
-            velocity += profile.Acceleration(1.0, fuel) * dt;
-            fuel = Math.Max(0.0, fuel - (profile.MassFlowRate(1.0) * dt));
+            // Полная тяга → ускорение a = F/m; расход mdot = F/v_e.
+            velocity += profile.Acceleration(profile.Thrust, fuel) * dt;
+            fuel = Math.Max(0.0, fuel - (profile.MassFlowRate(profile.Thrust) * dt));
         }
 
         double expected = Astro.RocketDeltaV(profile.ExhaustVelocity, profile.TotalMass, profile.DryMass);

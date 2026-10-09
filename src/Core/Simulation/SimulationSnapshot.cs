@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DarkSpace.Core.Data;
+using DarkSpace.Core.Systems.Physics;
 
 namespace DarkSpace.Core.Simulation;
 
@@ -15,7 +16,10 @@ namespace DarkSpace.Core.Simulation;
 /// <param name="SimTime">Модельное время симуляции в секундах.</param>
 /// <param name="Position">Позиция корабля игрока в системе (3D).</param>
 /// <param name="Velocity">Скорость корабля игрока (3D).</param>
-/// <param name="Thrust">Текущий вектор тяги (каждый компонент обычно в -1..1).</param>
+/// <param name="Orientation">Ориентация корабля (кватернион).</param>
+/// <param name="AngularVelocity">Угловая скорость корабля (3D).</param>
+/// <param name="Thrust">Текущая команда тяги в локальной системе (вперёд/вбок/вверх).</param>
+/// <param name="Rotation">Текущая команда вращения (тангаж/рыскание/крен).</param>
 /// <param name="TargetBodyIndex">Индекс выбранной планеты-цели, либо -1.</param>
 /// <param name="DockedBodyIndex">Индекс планеты, с которой корабль состыкован, либо -1.</param>
 /// <param name="Credits">Баланс кредитов.</param>
@@ -36,7 +40,10 @@ public sealed record SimulationSnapshot(
     double SimTime,
     Vector3D Position,
     Vector3D Velocity,
+    Quaternion Orientation,
+    Vector3D AngularVelocity,
     Vector3D Thrust,
+    Vector3D Rotation,
     int TargetBodyIndex,
     int DockedBodyIndex,
     double Credits,

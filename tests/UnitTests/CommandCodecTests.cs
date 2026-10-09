@@ -11,6 +11,7 @@ public sealed class CommandCodecTests
     {
         yield return new object[] { new MoveCommand(1, 10, 0.5, -0.5) };
         yield return new object[] { new MoveCommand(1, 11, 0.5, -0.5, 0.25) };
+        yield return new object[] { new RotateCommand(1, 12, 0.3, -0.4, 0.5) };
         yield return new object[] { new SetTargetCommand(2, 12, 3) };
         yield return new object[] { new DockCommand(2, 13) };
         yield return new object[] { new JumpCommand(2, 20, 42) };
@@ -33,14 +34,22 @@ public sealed class CommandCodecTests
     {
         string json = CommandCodec.Encode(new MoveCommand(1, 2, 0.1, 0.2));
         Assert.Contains("\"type\":\"Move\"", json);
-        Assert.Contains("\"thrustZ\"", json);
+        Assert.Contains("\"lift\"", json);
     }
 
     [Fact]
-    public void MoveCommand_DefaultsThrustZToZero()
+    public void MoveCommand_DefaultsLiftToZero()
     {
         var command = new MoveCommand(1, 0, 0.5, 0.5);
-        Assert.Equal(0.0, command.ThrustZ);
+        Assert.Equal(0.0, command.Lift);
+        Assert.Equal(command, CommandCodec.Decode(CommandCodec.Encode(command)));
+    }
+
+    [Fact]
+    public void RotateCommand_RoundTrips()
+    {
+        var command = new RotateCommand(1, 3, 0.4, -0.2, 0.6);
+        Assert.Contains("\"type\":\"Rotate\"", CommandCodec.Encode(command));
         Assert.Equal(command, CommandCodec.Decode(CommandCodec.Encode(command)));
     }
 

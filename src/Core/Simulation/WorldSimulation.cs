@@ -22,14 +22,16 @@ namespace DarkSpace.Core.Simulation;
 /// шаг физики на фиксированный интервал времени.
 /// </para>
 /// <para>
-/// Физика строится на реальных законах (см. <see cref="Astro"/> и <see cref="ShipPhysicsProfile"/>):
-/// второй закон Ньютона (a = F/m, масса растёт с топливом), сглаженная гравитация звезды с тем же
-/// гравитационным параметром μ, что и у орбит планет, и ракетное уравнение Циолковского для топлива.
-/// Интегратор — полушаговый Эйлера (симплектический), устойчивый к дрейфу энергии орбиты.
+/// Полёт — 6-степенная модель в духе Frontier/Elite: у корабля есть положение, <b>ориентация</b>
+/// (кватернион) и угловая скорость. Тяга идёт вдоль <b>носа корабля</b> в его локальной системе
+/// (<see cref="ShipAxes"/>), а не в мировых осях. Вращение — угловая динамика: управление задаёт
+/// угловое ускорение, ориентация интегрируется по угловой скорости. При <see cref="AngularAssistDamping"/> = 0
+/// угловой момент сохраняется (чистый Ньютон), при &gt;0 работают стабилизаторы (как в игре).
 /// </para>
 /// <para>
-/// Детерминизм обязателен: одинаковый мировой сид + одинаковая последовательность команд дают
-/// одинаковый результат. Здесь не используется <see cref="System.Random"/> и нет зависимости от Godot.
+/// Поступательная динамика — второй закон Ньютона (a = F/m, масса растёт с топливом), сглаженная
+/// гравитация звезды с единым гравитационным параметром μ, и ракетное уравнение Циолковского.
+/// Интегратор — полушаговый Эйлера (симплектический).
 /// </para>
 /// </remarks>
 public sealed class WorldSimulation
@@ -60,7 +62,13 @@ public sealed class WorldSimulation
 
     private Vector3D _position = Vector3D.Zero;
     private Vector3D _velocity = Vector3D.Zero;
-    private Vector3D _thrust = Vector3D.Zero;
+    private Quaternion _orientation = Quaternion.Identity;
+    private Vector3D _angularVelocity = Vector3D.Zero;
+
+    // Управление (сохраняется между тиками, как «положение РУД/стика»).
+    private Vector3D _thrustCommand = Vector3D.Zero;   // (forward, strafe, lift)
+    private Vector3D _rotationCommand = Vector3D.Zero; // (pitch, yaw, roll)
+
     private ShipData? _jumpShip;
 
     /// <summary>Мировой сид вселенной.</summary>
@@ -87,11 +95,22 @@ public sealed class WorldSimulation
     /// <summary>Остаток характеристической скорости (бюджет Δv, по ракетному уравнению).</summary>
     public double RemainingDeltaV => _profile.RemainingDeltaV(Fuel);
 
+    /// <summary>Текущая ориентация корабля.</summary>
+    public Quaternion Orientation => _orientation;
+
+    /// <summary>Текущая угловая скорость корабля.</summary>
+    public Vector3D AngularVelocity => _angularVelocity;
+
     /// <summary>
-    /// Коэффициент сопротивления «ассистента полёта» (в секунду). По умолчанию 0 — чистый вакуум,
-    /// как в реальном космосе (энергия и угловой момент сохраняются).
+    /// Коэффициент линейного «ассистента полёта» (в секунду). По умолчанию 0 — чистый вакуум.
     /// </summary>
     public double FlightAssistDrag { get; set; }
+
+    /// <summary>
+    /// Коэффициент углового демпфирования (стабилизаторы). По умолчанию — из профиля; 0 — чистый Ньютон
+    /// (угловой момент сохраняется, корабль «кувыркается»).
+    /// </summary>
+    public double AngularAssistDamping { get; set; }
 
     /// <summary>Индекс текущей галактики.</summary>
     public int GalaxyIndex { get; private set; }
@@ -132,6 +151,7 @@ public sealed class WorldSimulation
     {
         WorldSeed = worldSeed;
         _profile = profile ?? ShipPhysicsProfile.Default;
+        AngularAssistDamping = _profile.AngularDamping;
         Fuel = _profile.FuelMass;
         SetCurrentSystem(0, 0);
     }
@@ -168,7 +188,10 @@ public sealed class WorldSimulation
         DockedBodyIndex = -1;
         _position = ShipSpawn;
         _velocity = Vector3D.Zero;
-        _thrust = Vector3D.Zero;
+        _orientation = Quaternion.Identity;
+        _angularVelocity = Vector3D.Zero;
+        _thrustCommand = Vector3D.Zero;
+        _rotationCommand = Vector3D.Zero;
     }
 
     /// <summary>
@@ -199,18 +222,67 @@ public sealed class WorldSimulation
 
     private void IntegratePhysics(double deltaSeconds)
     {
-        double throttle = _thrust.Length;
-        Vector3D thrustAcceleration = _thrust * _profile.Acceleration(throttle > 1.0 ? 1.0 : throttle, Fuel);
+        IntegrateRotation(deltaSeconds);
+        IntegrateTranslation(deltaSeconds);
+    }
+
+    private void IntegrateRotation(double deltaSeconds)
+    {
+        // Локальное угловое ускорение: pitch вокруг «вправо», yaw вокруг «вверх», roll вокруг носа.
+        Vector3D localAngularAcceleration =
+            (ShipAxes.Right * _rotationCommand.X) +
+            (ShipAxes.Up * _rotationCommand.Y) +
+            (ShipAxes.Forward * _rotationCommand.Z);
+
+        if (localAngularAcceleration.Length > 1.0)
+        {
+            localAngularAcceleration = localAngularAcceleration.Normalized();
+        }
+
+        Vector3D worldAngularAcceleration = _orientation.Rotate(localAngularAcceleration) * _profile.AngularAcceleration;
+        _angularVelocity += worldAngularAcceleration * deltaSeconds;
+
+        // Стабилизаторы (угловое демпфирование). 0 — чисто ньютоновское вращение.
+        double damping = Math.Max(0.0, 1.0 - (AngularAssistDamping * deltaSeconds));
+        _angularVelocity *= damping;
+
+        // Ограничение скорости вращения.
+        if (_angularVelocity.Length > _profile.MaxAngularRate)
+        {
+            _angularVelocity = _angularVelocity.Normalized() * _profile.MaxAngularRate;
+        }
+
+        _orientation = _orientation.Integrate(_angularVelocity, deltaSeconds);
+    }
+
+    private void IntegrateTranslation(double deltaSeconds)
+    {
+        // Тяга в локальной системе корабля (с учётом латеральных/обратных двигателей).
+        double forward = _thrustCommand.X;
+        double strafe = _thrustCommand.Y * _profile.LateralThrustFactor;
+        double lift = _thrustCommand.Z * _profile.LateralThrustFactor;
+        if (forward < 0)
+        {
+            forward *= _profile.ReverseThrustFactor;
+        }
+
+        Vector3D localThrust = (ShipAxes.Forward * forward) + (ShipAxes.Right * strafe) + (ShipAxes.Up * lift);
+        if (localThrust.Length > 1.0)
+        {
+            localThrust = localThrust.Normalized();
+        }
+
+        double thrustMagnitude = localThrust.Length * _profile.Thrust;
+        Vector3D thrustAcceleration = _orientation.Rotate(localThrust) * _profile.Acceleration(_profile.Thrust, Fuel);
         Vector3D gravity = Astro.SoftenedGravityAcceleration(SystemModel.Mu, _position, GravitySoftening);
         Vector3D acceleration = thrustAcceleration + gravity;
 
-        // Полушаговый (симплектический) Эйлера: сначала скорость, затем позиция.
         _velocity = (_velocity + (acceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (FlightAssistDrag * deltaSeconds));
         _position += _velocity * deltaSeconds;
 
-        if (throttle > 1e-6)
+        if (thrustMagnitude > 1e-6)
         {
-            double burn = _profile.MassFlowRate(throttle) * deltaSeconds;
+            double burn = _profile.MassFlowRate(thrustMagnitude) * deltaSeconds;
             Fuel = Math.Max(0.0, Fuel - burn);
         }
     }
@@ -224,7 +296,10 @@ public sealed class WorldSimulation
             SimTime,
             _position,
             _velocity,
-            _thrust,
+            _orientation,
+            _angularVelocity,
+            _thrustCommand,
+            _rotationCommand,
             TargetBodyIndex,
             DockedBodyIndex,
             Credits,
@@ -248,16 +323,27 @@ public sealed class WorldSimulation
     public void SetReputation(FactionType faction, int value) => _reputation[faction] = ReputationSystem.Clamp(value);
 
     /// <summary>
-    /// Устанавливает состояние корабля (позиция и скорость). Используется загрузкой сохранений,
-    /// точками спавна и тестами физических законов. Тяга и стыковка сбрасываются.
+    /// Устанавливает состояние корабля (положение и скорость). Используется загрузкой сохранений,
+    /// точками спавна и тестами физических законов. Ориентация — единичная, вращение/тяга сброшены.
     /// </summary>
     /// <param name="position">Позиция корабля в системе.</param>
     /// <param name="velocity">Скорость корабля.</param>
     public void InitializeShip(Vector3D position, Vector3D velocity)
+        => InitializeShip(position, velocity, Quaternion.Identity, Vector3D.Zero);
+
+    /// <summary>Устанавливает полное состояние корабля (положение, скорость, ориентацию, угловую скорость).</summary>
+    /// <param name="position">Позиция корабля в системе.</param>
+    /// <param name="velocity">Скорость корабля.</param>
+    /// <param name="orientation">Ориентация корабля.</param>
+    /// <param name="angularVelocity">Угловая скорость корабля.</param>
+    public void InitializeShip(Vector3D position, Vector3D velocity, Quaternion orientation, Vector3D angularVelocity)
     {
         _position = position;
         _velocity = velocity;
-        _thrust = Vector3D.Zero;
+        _orientation = orientation.Normalized();
+        _angularVelocity = angularVelocity;
+        _thrustCommand = Vector3D.Zero;
+        _rotationCommand = Vector3D.Zero;
         DockedBodyIndex = -1;
     }
 
@@ -267,6 +353,10 @@ public sealed class WorldSimulation
         {
             case MoveCommand move:
                 ApplyMove(move);
+                break;
+
+            case RotateCommand rotate:
+                _rotationCommand = new Vector3D(rotate.Pitch, rotate.Yaw, rotate.Roll);
                 break;
 
             case SetTargetCommand target:
@@ -302,14 +392,14 @@ public sealed class WorldSimulation
 
     private void ApplyMove(MoveCommand move)
     {
-        var thrust = new Vector3D(move.ThrustX, move.ThrustY, move.ThrustZ);
+        var thrust = new Vector3D(move.Forward, move.Strafe, move.Lift);
         if (thrust.Length > 1e-6 && DockedBodyIndex >= 0)
         {
             // Любая тяга снимает корабль со стыковки.
             DockedBodyIndex = -1;
         }
 
-        _thrust = thrust.Length > 1.0 ? thrust.Normalized() : thrust;
+        _thrustCommand = thrust.Length > 1.0 ? thrust.Normalized() : thrust;
     }
 
     private void ApplySetTarget(SetTargetCommand target)
@@ -332,7 +422,9 @@ public sealed class WorldSimulation
             DockedBodyIndex = TargetBodyIndex;
             _position = SystemModel.BodyPosition(TargetBodyIndex, SimTime);
             _velocity = Vector3D.Zero;
-            _thrust = Vector3D.Zero;
+            _thrustCommand = Vector3D.Zero;
+            _rotationCommand = Vector3D.Zero;
+            _angularVelocity = Vector3D.Zero;
         }
     }
 
@@ -352,8 +444,10 @@ public sealed class WorldSimulation
         if (result.Outcome == JumpOutcome.Destroyed)
         {
             Destroyed = true;
-            _thrust = Vector3D.Zero;
+            _thrustCommand = Vector3D.Zero;
+            _rotationCommand = Vector3D.Zero;
             _velocity = Vector3D.Zero;
+            _angularVelocity = Vector3D.Zero;
             DockedBodyIndex = -1;
             return;
         }

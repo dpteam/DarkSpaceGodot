@@ -6,6 +6,9 @@ public enum CommandType
     /// <summary>Задать вектор тяги корабля.</summary>
     Move,
 
+    /// <summary>Управлять ориентацией корабля (тангаж/рыскание/крен).</summary>
+    Rotate,
+
     /// <summary>Назначить целевую планету в текущей системе.</summary>
     SetTarget,
 

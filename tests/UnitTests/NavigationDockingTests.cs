@@ -1,5 +1,6 @@
 using DarkSpace.Core.Data;
 using DarkSpace.Core.Simulation;
+using DarkSpace.Core.Systems.Physics;
 using Xunit;
 
 namespace DarkSpace.Tests.Unit;
@@ -84,10 +85,10 @@ public sealed class NavigationDockingTests
     {
         var sim = new WorldSimulation(777);
 
-        // Разгоняем корабль в сторону от звезды.
+        // Разгоняем корабль в сторону от звезды (радиально наружу = +Z в мире при единичной ориентации).
         for (int i = 0; i < 120; i++)
         {
-            sim.Enqueue(new MoveCommand(1, i, 1.0, 0.0, 0.0));
+            sim.Enqueue(new MoveCommand(1, i, 0.0, 0.0, 1.0));
             sim.Advance(Dt);
         }
 
@@ -135,9 +136,11 @@ public sealed class NavigationDockingTests
 
             Vector3D desiredVelocity = bodyVelocity + (toTarget.Normalized() * Math.Min(30.0, distance * 3.0));
             Vector3D accelCommand = (desiredVelocity - snap.Velocity) * 0.5;
-            Vector3D thrust = accelCommand.Length > 1.0 ? accelCommand.Normalized() : accelCommand;
+            Vector3D worldThrust = accelCommand.Length > 1.0 ? accelCommand.Normalized() : accelCommand;
 
-            sim.Enqueue(new MoveCommand(1, seq++, thrust.X, thrust.Y, thrust.Z));
+            // Тяга теперь в локальной системе корабля — раскладываем мировой вектор по ориентации.
+            (double forward, double strafe, double lift) = ShipAxes.WorldToLocal(snap.Orientation, worldThrust);
+            sim.Enqueue(new MoveCommand(1, seq++, forward, strafe, lift));
             sim.Advance(Dt);
         }
     }
