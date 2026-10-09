@@ -82,6 +82,13 @@ size_flags_horizontal = 0
 theme_override_font_sizes/font_size = 22
 text = "Карта системы"
 
+[node name="FlightButton" type="Button" parent="Layout/Menu"]
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 22
+text = "Полёт по системе"
+
 [node name="SettingsButton" type="Button" parent="Layout/Menu"]
 custom_minimum_size = Vector2(300, 48)
 layout_mode = 2

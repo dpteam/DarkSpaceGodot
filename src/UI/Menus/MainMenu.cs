@@ -73,8 +73,9 @@ public partial class MainMenu : Control
     {
         GetNode<Button>("Layout/Menu/NewGameButton").Pressed += OnNewGame;
         _continueButton.Pressed += OnContinue;
-        GetNode<Button>("Layout/Menu/SandboxButton").Pressed += OnSandbox;
         GetNode<Button>("Layout/Menu/SystemMapButton").Pressed += OnSystemMap;
+        GetNode<Button>("Layout/Menu/FlightButton").Pressed += OnFlight;
+        GetNode<Button>("Layout/Menu/SandboxButton").Pressed += OnSandbox;
         GetNode<Button>("Layout/Menu/SettingsButton").Pressed += () => _settingsPanel.Visible = !_settingsPanel.Visible;
         GetNode<Button>("Layout/Menu/QuitButton").Pressed += () => GetTree().Quit();
 
@@ -115,6 +116,12 @@ public partial class MainMenu : Control
     {
         GameContext.GetOrCreate();
         GetTree().ChangeSceneToFile("res://src/Gameplay/Universe/StarSystemView.tscn");
+    }
+
+    private void OnFlight()
+    {
+        GameContext.GetOrCreate();
+        GetTree().ChangeSceneToFile("res://src/Gameplay/Ship/SystemFlightView.tscn");
     }
 
     private void OnContinue()

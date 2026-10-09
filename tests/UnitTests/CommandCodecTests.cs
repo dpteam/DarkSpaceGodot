@@ -10,6 +10,9 @@ public sealed class CommandCodecTests
     public static IEnumerable<object[]> AllCommands()
     {
         yield return new object[] { new MoveCommand(1, 10, 0.5, -0.5) };
+        yield return new object[] { new MoveCommand(1, 11, 0.5, -0.5, 0.25) };
+        yield return new object[] { new SetTargetCommand(2, 12, 3) };
+        yield return new object[] { new DockCommand(2, 13) };
         yield return new object[] { new JumpCommand(2, 20, 42) };
         yield return new object[] { new BuyItemCommand(3, 30, 7, 5) };
         yield return new object[] { new SellItemCommand(4, 40, 9, 2) };
@@ -30,6 +33,15 @@ public sealed class CommandCodecTests
     {
         string json = CommandCodec.Encode(new MoveCommand(1, 2, 0.1, 0.2));
         Assert.Contains("\"type\":\"Move\"", json);
+        Assert.Contains("\"thrustZ\"", json);
+    }
+
+    [Fact]
+    public void MoveCommand_DefaultsThrustZToZero()
+    {
+        var command = new MoveCommand(1, 0, 0.5, 0.5);
+        Assert.Equal(0.0, command.ThrustZ);
+        Assert.Equal(command, CommandCodec.Decode(CommandCodec.Encode(command)));
     }
 
     [Fact]

@@ -6,6 +6,12 @@ public enum CommandType
     /// <summary>Задать вектор тяги корабля.</summary>
     Move,
 
+    /// <summary>Назначить целевую планету в текущей системе.</summary>
+    SetTarget,
+
+    /// <summary>Стыковаться с целевой планетой (посадка), если корабль в радиусе.</summary>
+    Dock,
+
     /// <summary>Совершить прыжок через чёрную дыру в другую галактику.</summary>
     Jump,
 

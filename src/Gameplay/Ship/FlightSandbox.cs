@@ -210,7 +210,7 @@ public partial class FlightSandbox : Control
         DrawColoredPolygon(new[] { nose, left, right }, shipColor);
 
         // Направление тяги.
-        var thrust = new Vector2((float)s.ThrustX, (float)s.ThrustY);
+        var thrust = new Vector2((float)s.Thrust.X, (float)s.Thrust.Y);
         if (thrust.LengthSquared() > 0.001f)
         {
             DrawLine(center, center - (thrust.Normalized() * 40.0f), new Color(1.0f, 0.5f, 0.1f), 3.0f);

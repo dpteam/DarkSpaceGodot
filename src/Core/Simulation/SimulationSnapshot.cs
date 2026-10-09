@@ -12,10 +12,12 @@ namespace DarkSpace.Core.Simulation;
 /// </remarks>
 /// <param name="WorldSeed">Мировой сид вселенной.</param>
 /// <param name="Tick">Номер тика.</param>
-/// <param name="Position">Позиция корабля игрока в пространстве системы.</param>
-/// <param name="Velocity">Скорость корабля игрока.</param>
-/// <param name="ThrustX">Текущая компонента X вектора тяги.</param>
-/// <param name="ThrustY">Текущая компонента Y вектора тяги.</param>
+/// <param name="SimTime">Модельное время симуляции в секундах.</param>
+/// <param name="Position">Позиция корабля игрока в системе (3D).</param>
+/// <param name="Velocity">Скорость корабля игрока (3D).</param>
+/// <param name="Thrust">Текущий вектор тяги (каждый компонент обычно в -1..1).</param>
+/// <param name="TargetBodyIndex">Индекс выбранной планеты-цели, либо -1.</param>
+/// <param name="DockedBodyIndex">Индекс планеты, с которой корабль состыкован, либо -1.</param>
 /// <param name="Credits">Баланс кредитов.</param>
 /// <param name="Fuel">Текущее топливо.</param>
 /// <param name="GalaxyIndex">Индекс текущей галактики.</param>
@@ -29,10 +31,12 @@ namespace DarkSpace.Core.Simulation;
 public sealed record SimulationSnapshot(
     ulong WorldSeed,
     long Tick,
-    Vector2D Position,
-    Vector2D Velocity,
-    double ThrustX,
-    double ThrustY,
+    double SimTime,
+    Vector3D Position,
+    Vector3D Velocity,
+    Vector3D Thrust,
+    int TargetBodyIndex,
+    int DockedBodyIndex,
     double Credits,
     double Fuel,
     int GalaxyIndex,

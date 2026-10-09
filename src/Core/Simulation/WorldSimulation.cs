@@ -5,6 +5,7 @@ using DarkSpace.Core.Generation;
 using DarkSpace.Core.Systems.Economy;
 using DarkSpace.Core.Systems.Factions;
 using DarkSpace.Core.Systems.Items;
+using DarkSpace.Core.Systems.Orbital;
 using DarkSpace.Core.Systems.Travel;
 using DarkSpace.Core.Utils;
 
@@ -20,10 +21,10 @@ namespace DarkSpace.Core.Simulation;
 /// шаг физики на фиксированный интервал времени.
 /// </para>
 /// <para>
-/// Детерминизм обязателен: одинаковый мировой сид + одинаковая последовательность команд
-/// дают одинаковый результат. Это позволяет серверу быть авторитарным, а клиентам —
-/// воспроизводить состояние (будущее предсказание). Здесь не используется <see cref="System.Random"/>
-/// и нет зависимости от Godot.
+/// Модель пространства трёхмерная: <see cref="Vector3D"/>, тяга по трём осям, гравитация звезды
+/// (в начале координат). Одинаковый мировой сид + одинаковая последовательность команд дают
+/// одинаковый результат (детерминизм), поэтому сервер может быть авторитарным, а клиенты —
+/// воспроизводить состояние. Здесь не используется <see cref="System.Random"/> и нет зависимости от Godot.
 /// </para>
 /// </remarks>
 public sealed class WorldSimulation
@@ -34,6 +35,18 @@ public sealed class WorldSimulation
     /// <summary>Коэффициент линейного сопротивления среды (в секунду).</summary>
     public const double LinearDrag = 0.2;
 
+    /// <summary>
+    /// Гравитационный параметр звезды для динамики корабля (сглаженный, без сингулярности в ядре).
+    /// Гравитация добавляет «дрейф» к звезде, но не доминирует над тягой — так полёт остаётся аркадным.
+    /// </summary>
+    public const double StellarGravityParameter = 60.0;
+
+    /// <summary>Длина сглаживания гравитации (делает притяжение конечным вблизи ядра звезды).</summary>
+    public const double GravitySoftening = 8.0;
+
+    /// <summary>Радиус стыковки с планетой (условные единицы).</summary>
+    public const double DockRange = 4.0;
+
     /// <summary>Стартовый баланс кредитов.</summary>
     public const double StartingCredits = 1000.0;
 
@@ -43,14 +56,17 @@ public sealed class WorldSimulation
     /// <summary>Максимальное число сообщений чата, хранимых в снапшоте.</summary>
     public const int MaxChatLog = 50;
 
+    /// <summary>Точка появления корабля — над плоскостью системы, вдали от звезды и планет.</summary>
+    public static readonly Vector3D ShipSpawn = new(0.0, 0.0, 12.0);
+
     private readonly Queue<IGameCommand> _pending = new();
     private readonly Dictionary<int, int> _cargo = new();
     private readonly List<string> _chatLog = new();
     private readonly Dictionary<FactionType, int> _reputation = new();
 
-    private Vector2D _position = Vector2D.Zero;
-    private Vector2D _velocity = Vector2D.Zero;
-    private Vector2D _thrust = Vector2D.Zero;
+    private Vector3D _position = Vector3D.Zero;
+    private Vector3D _velocity = Vector3D.Zero;
+    private Vector3D _thrust = Vector3D.Zero;
     private ShipData? _ship;
 
     /// <summary>Мировой сид вселенной.</summary>
@@ -58,6 +74,9 @@ public sealed class WorldSimulation
 
     /// <summary>Текущий номер тика.</summary>
     public long Tick { get; private set; }
+
+    /// <summary>Модельное время симуляции в секундах.</summary>
+    public double SimTime { get; private set; }
 
     /// <summary>Баланс кредитов.</summary>
     public double Credits { get; private set; } = StartingCredits;
@@ -71,6 +90,9 @@ public sealed class WorldSimulation
     /// <summary>Индекс текущей звёздной системы.</summary>
     public int SystemIndex { get; private set; }
 
+    /// <summary>Модель текущей системы (звезда и планеты с орбитами).</summary>
+    public StarSystemModel SystemModel { get; private set; } = null!;
+
     /// <summary>Название текущей системы.</summary>
     public string SystemName { get; private set; } = "—";
 
@@ -79,6 +101,12 @@ public sealed class WorldSimulation
 
     /// <summary>Контролирующая фракция текущей системы.</summary>
     public FactionType Faction { get; private set; } = FactionType.EmpireOfDawn;
+
+    /// <summary>Индекс выбранной планеты-цели, либо -1.</summary>
+    public int TargetBodyIndex { get; private set; } = -1;
+
+    /// <summary>Индекс планеты, с которой корабль состыкован, либо -1.</summary>
+    public int DockedBodyIndex { get; private set; } = -1;
 
     /// <summary>Уничтожен ли корабль (после неудачного прыжка).</summary>
     public bool Destroyed { get; private set; }
@@ -108,7 +136,7 @@ public sealed class WorldSimulation
     }
 
     /// <summary>
-    /// Перемещает симуляцию в заданную систему вселенной, обновляя экономику и фракцию.
+    /// Перемещает симуляцию в заданную систему вселенной, обновляя экономику, фракцию и модель системы.
     /// </summary>
     /// <param name="galaxyIndex">Индекс галактики.</param>
     /// <param name="systemIndex">Индекс системы.</param>
@@ -116,13 +144,19 @@ public sealed class WorldSimulation
     public void SetCurrentSystem(int galaxyIndex, int systemIndex)
     {
         GalaxyData galaxy = GalaxyGenerator.GenerateGalaxy(WorldSeed, galaxyIndex);
-        StarSystemData system = StarSystemGenerator.GenerateSystem(galaxy, systemIndex);
+        StarSystemModel model = StarSystemModel.Create(galaxy, systemIndex);
 
         GalaxyIndex = galaxyIndex;
         SystemIndex = systemIndex;
-        SystemName = system.Name;
-        Economy = system.Economy;
-        Faction = system.ControllingFaction;
+        SystemModel = model;
+        SystemName = model.System.Name;
+        Economy = model.System.Economy;
+        Faction = model.System.ControllingFaction;
+        TargetBodyIndex = -1;
+        DockedBodyIndex = -1;
+        _position = ShipSpawn;
+        _velocity = Vector3D.Zero;
+        _thrust = Vector3D.Zero;
     }
 
     /// <summary>
@@ -142,12 +176,15 @@ public sealed class WorldSimulation
             Apply(_pending.Dequeue());
         }
 
-        if (!Destroyed)
+        if (!Destroyed && DockedBodyIndex < 0)
         {
-            _velocity = (_velocity + (_thrust * ThrustAcceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (LinearDrag * deltaSeconds));
+            Vector3D gravity = ComputeStellarGravity(_position);
+            Vector3D acceleration = (_thrust * ThrustAcceleration) + gravity;
+            _velocity = (_velocity + (acceleration * deltaSeconds)) * Math.Max(0.0, 1.0 - (LinearDrag * deltaSeconds));
             _position += _velocity * deltaSeconds;
         }
 
+        SimTime += deltaSeconds;
         Tick++;
     }
 
@@ -157,10 +194,12 @@ public sealed class WorldSimulation
         return new SimulationSnapshot(
             WorldSeed,
             Tick,
+            SimTime,
             _position,
             _velocity,
-            _thrust.X,
-            _thrust.Y,
+            _thrust,
+            TargetBodyIndex,
+            DockedBodyIndex,
             Credits,
             Fuel,
             GalaxyIndex,
@@ -173,12 +212,40 @@ public sealed class WorldSimulation
             new List<string>(_chatLog));
     }
 
+    /// <summary>Возвращает репутацию игрока у фракции (0, если не задана).</summary>
+    public int ReputationFor(FactionType faction) => _reputation.GetValueOrDefault(faction);
+
+    /// <summary>Устанавливает репутацию игрока у фракции (с ограничением диапазона).</summary>
+    public void SetReputation(FactionType faction, int value) => _reputation[faction] = ReputationSystem.Clamp(value);
+
+    private static Vector3D ComputeStellarGravity(Vector3D position)
+    {
+        double r = position.Length;
+        if (r < 1e-3)
+        {
+            return Vector3D.Zero;
+        }
+
+        // Сглаженная гравитация: a = -μ · r_vec / (r² + ε²)^(3/2) — конечна в ядре, плавна вовне.
+        double denominator = Math.Pow((r * r) + (GravitySoftening * GravitySoftening), 1.5);
+        double factor = StellarGravityParameter / denominator;
+        return position * -factor;
+    }
+
     private void Apply(IGameCommand command)
     {
         switch (command)
         {
             case MoveCommand move:
-                _thrust = new Vector2D(move.ThrustX, move.ThrustY).ClampLength(1.0);
+                ApplyMove(move);
+                break;
+
+            case SetTargetCommand target:
+                ApplySetTarget(target);
+                break;
+
+            case DockCommand dock:
+                ApplyDock(dock);
                 break;
 
             case JumpCommand jump:
@@ -204,9 +271,45 @@ public sealed class WorldSimulation
         }
     }
 
+    private void ApplyMove(MoveCommand move)
+    {
+        var thrust = new Vector3D(move.ThrustX, move.ThrustY, move.ThrustZ);
+        if (thrust.Length > 1e-6 && DockedBodyIndex >= 0)
+        {
+            // Любая тяга снимает корабль со стыковки.
+            DockedBodyIndex = -1;
+        }
+
+        _thrust = thrust.Length > 1.0 ? thrust.Normalized() : thrust;
+    }
+
+    private void ApplySetTarget(SetTargetCommand target)
+    {
+        TargetBodyIndex = target.BodyIndex >= 0 && target.BodyIndex < SystemModel.BodyCount
+            ? target.BodyIndex
+            : -1;
+    }
+
+    private void ApplyDock(DockCommand dock)
+    {
+        if (Destroyed || TargetBodyIndex < 0 || TargetBodyIndex >= SystemModel.BodyCount)
+        {
+            return;
+        }
+
+        double distance = SystemModel.DistanceToBody(TargetBodyIndex, _position, SimTime);
+        if (distance <= DockRange)
+        {
+            DockedBodyIndex = TargetBodyIndex;
+            _position = SystemModel.BodyPosition(TargetBodyIndex, SimTime);
+            _velocity = Vector3D.Zero;
+            _thrust = Vector3D.Zero;
+        }
+    }
+
     private void ApplyJump(JumpCommand jump)
     {
-        if (Destroyed || Fuel <= 0.0)
+        if (Destroyed || DockedBodyIndex >= 0 || Fuel <= 0.0)
         {
             return;
         }
@@ -220,15 +323,13 @@ public sealed class WorldSimulation
         if (result.Outcome == JumpOutcome.Destroyed)
         {
             Destroyed = true;
-            _thrust = Vector2D.Zero;
-            _velocity = Vector2D.Zero;
+            _thrust = Vector3D.Zero;
+            _velocity = Vector3D.Zero;
+            DockedBodyIndex = -1;
             return;
         }
 
         SetCurrentSystem(Math.Clamp(jump.TargetGalaxyIndex, 0, GalaxyGenerator.MaxGalaxyCount - 1), 0);
-        _position = Vector2D.Zero;
-        _velocity = Vector2D.Zero;
-        _thrust = Vector2D.Zero;
     }
 
     private void ApplyBuy(BuyItemCommand buy)
@@ -275,10 +376,4 @@ public sealed class WorldSimulation
 
         Credits += (double)unitPrice * sell.Quantity;
     }
-
-    /// <summary>Возвращает репутацию игрока у фракции (0, если не задана).</summary>
-    public int ReputationFor(FactionType faction) => _reputation.GetValueOrDefault(faction);
-
-    /// <summary>Устанавливает репутацию игрока у фракции (с ограничением диапазона).</summary>
-    public void SetReputation(FactionType faction, int value) => _reputation[faction] = ReputationSystem.Clamp(value);
 }

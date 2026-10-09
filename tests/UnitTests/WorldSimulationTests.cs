@@ -61,7 +61,7 @@ public sealed class WorldSimulationTests
         sim.Enqueue(new MoveCommand(1, 0, 100.0, 0.0));
         sim.Advance(Dt);
         SimulationSnapshot snap = sim.CaptureSnapshot();
-        Assert.Equal(1.0, new Vector2D(snap.ThrustX, snap.ThrustY).Length, precision: 6);
+        Assert.Equal(1.0, snap.Thrust.Length, precision: 6);
     }
 
     [Fact]
