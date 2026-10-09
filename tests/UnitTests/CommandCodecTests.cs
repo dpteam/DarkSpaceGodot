@@ -1,0 +1,48 @@
+using DarkSpace.Core.Network;
+using DarkSpace.Core.Simulation;
+using Xunit;
+
+namespace DarkSpace.Tests.Unit;
+
+/// <summary>Тесты кодека игровых команд.</summary>
+public sealed class CommandCodecTests
+{
+    public static IEnumerable<object[]> AllCommands()
+    {
+        yield return new object[] { new MoveCommand(1, 10, 0.5, -0.5) };
+        yield return new object[] { new JumpCommand(2, 20, 42) };
+        yield return new object[] { new BuyItemCommand(3, 30, 7, 5) };
+        yield return new object[] { new SellItemCommand(4, 40, 9, 2) };
+        yield return new object[] { new ChatCommand(5, 50, "Привет, пилот!") };
+    }
+
+    [Theory]
+    [MemberData(nameof(AllCommands))]
+    public void RoundTrip_PreservesCommand(IGameCommand command)
+    {
+        string json = CommandCodec.Encode(command);
+        IGameCommand decoded = CommandCodec.Decode(json);
+        Assert.Equal(command, decoded);
+    }
+
+    [Fact]
+    public void Encode_ContainsDiscriminator()
+    {
+        string json = CommandCodec.Encode(new MoveCommand(1, 2, 0.1, 0.2));
+        Assert.Contains("\"type\":\"Move\"", json);
+    }
+
+    [Fact]
+    public void Decode_Invalid_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandCodec.Decode(string.Empty));
+        Assert.Throws<FormatException>(() => CommandCodec.Decode("{ это не json"));
+        Assert.Throws<FormatException>(() => CommandCodec.Decode("{\"type\":\"Unknown\",\"playerId\":1,\"sequence\":0}"));
+    }
+
+    [Fact]
+    public void Null_Encode_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => CommandCodec.Encode(null!));
+    }
+}

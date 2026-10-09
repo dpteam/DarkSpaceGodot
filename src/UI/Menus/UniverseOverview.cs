@@ -30,7 +30,7 @@ public partial class UniverseOverview : Control
     public override void _Ready()
     {
         Log.AddSink(new GodotLogSink());
-        EnsureSaveDirectory();
+        GameContext.EnsureSaveDirectory();
 
         _output = GetNode<RichTextLabel>("Output");
         _output.Clear();
@@ -46,18 +46,6 @@ public partial class UniverseOverview : Control
 
     private void OnBackPressed()
         => GetTree().ChangeSceneToFile("res://src/UI/Menus/MainMenu.tscn");
-
-    /// <summary>
-    /// Гарантирует, что каталог сохранений задан, даже если сцена запущена напрямую
-    /// (без прохода через главное меню, которое обычно его устанавливает).
-    /// </summary>
-    private static void EnsureSaveDirectory()
-    {
-        if (string.IsNullOrEmpty(GameContext.SaveDirectory))
-        {
-            GameContext.SaveDirectory = ProjectSettings.GlobalizePath("user://saves");
-        }
-    }
 
     private async Task InitializeAsync()
     {

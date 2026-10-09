@@ -2,6 +2,7 @@ using DarkSpace.Core.Data;
 using DarkSpace.Core.Data.Save;
 using DarkSpace.Core.Generation;
 using DarkSpace.Core.Utils.Logging;
+using Godot;
 
 namespace DarkSpace.Gameplay;
 
@@ -25,12 +26,25 @@ public static class GameContext
     public static string SaveDirectory { get; set; } = string.Empty;
 
     /// <summary>
+    /// Гарантирует, что каталог сохранений задан, даже если сцена запущена напрямую
+    /// (без прохода через главное меню). Использует путь Godot <c>user://saves</c>.
+    /// </summary>
+    public static void EnsureSaveDirectory()
+    {
+        if (string.IsNullOrEmpty(SaveDirectory))
+        {
+            SaveDirectory = ProjectSettings.GlobalizePath("user://saves");
+        }
+    }
+
+    /// <summary>
     /// Создаёт новую сессию с заданным мировым сидом.
     /// </summary>
     /// <param name="worldSeed">Мировой сид вселенной.</param>
     /// <returns>Созданная сессия.</returns>
     public static GameSession StartNew(ulong worldSeed)
     {
+        EnsureSaveDirectory();
         Session = new GameSession(worldSeed, SaveDirectory);
         Log.Info("GameContext", $"Новая сессия. Мировой сид: 0x{worldSeed:X16}.");
         return Session;
