@@ -1,8 +1,11 @@
 ; Engine configuration file.
-; Dark Space - procedural space sim / RPG / survival
+; Dark Space — procedural space sim / RPG / survival
 ;
-; Формат: Godot 4.7
-; Правь через редактор Godot, а не вручную, где это возможно.
+; Формат: Godot 4.7. Правь через редактор Godot, а не вручную, где это возможно.
+;
+; ВАЖНО (RDP): целевой рендер игры — Forward+ (Vulkan). В RDP-сессии он падает
+; в драйвере NVIDIA, поэтому для разработки по RDP используй compatibility-рендер:
+; см. tools/open-editor.cmd и MEMORY.md (ENV-001).
 
 config_version=5
 

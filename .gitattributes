@@ -5,6 +5,8 @@
 *.cs      text diff=csharp
 *.csproj  text
 *.sln     text eol=crlf
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
 *.md      text
 *.json    text
 *.tscn    text

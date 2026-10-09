@@ -54,6 +54,11 @@ dotnet build DarkSpace.sln
 2. `Project → Open` → выбери `project.godot` в корне репозитория.
 3. Дождись сборки C# (Godot вызовет `dotnet build` автоматически) и нажми **F5**.
 
+> **Если работаешь по RDP:** редактор может падать при рендере Forward+ (Vulkan) —
+> это проблема окружения (RDP + драйвер NVIDIA), а не проекта. Запускай редактор с
+> `--rendering-method gl_compatibility`, например через `tools/open-editor.cmd`.
+> Подробности — `MEMORY.md` → «Известные проблемы» (ENV-001) и `tools/README.md`.
+
 ### 3. Запуск из командной строки
 
 ```bash
@@ -112,6 +117,9 @@ DarkSpace/
     ├── UnitTests/        # Юнит-тесты логики (xUnit)
     └── IntegrationTests/ # Интеграционные тесты (мультиплеер)
 ```
+
+Дополнительно в корне есть папка `tools/` со вспомогательными скриптами разработки
+(`open-editor.cmd`, `run-game.cmd`, `build-and-test.cmd`) — см. `tools/README.md`.
 
 ---
 

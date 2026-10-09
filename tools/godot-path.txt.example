@@ -1,0 +1,9 @@
+# Пример файла с путём к Godot .NET.
+#
+# Скопируйте этот файл в tools\godot-path.txt (НЕ коммитится) и укажите
+# полный путь к исполняемому файлу Godot с поддержкой .NET/Mono.
+#
+# Важно: нужна именно .NET/Mono-сборка (имя содержит "mono"), обычная сборка C# не запускает.
+#
+# Пример:
+# E:\_DPT_Projects_E\__Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe
