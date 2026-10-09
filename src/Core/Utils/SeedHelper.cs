@@ -34,6 +34,14 @@ public static class SeedHelper
     }
 
     /// <summary>
+    /// Смешивает родительский сид и строковый тег подсистемы в один сид.
+    /// </summary>
+    /// <param name="seed">Родительский сид.</param>
+    /// <param name="tag">Тег подсистемы (например, «races», «cities»).</param>
+    public static ulong Combine(ulong seed, string tag)
+        => Combine(seed, FromString(tag));
+
+    /// <summary>
     /// Смешивает родительский сид, строковый тег подсистемы и дополнительный сид в один сид.
     /// </summary>
     /// <param name="seedA">Родительский сид.</param>

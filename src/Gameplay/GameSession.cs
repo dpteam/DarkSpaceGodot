@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DarkSpace.Core.Data;
 using DarkSpace.Core.Data.Save;
 using DarkSpace.Core.Generation;
@@ -38,6 +39,23 @@ public sealed class GameSession
     /// <summary>Генерирует галактику по её индексу.</summary>
     public GalaxyData GetGalaxy(int galaxyIndex)
         => GalaxyGenerator.GenerateGalaxy(WorldSeed, galaxyIndex);
+
+    /// <summary>Генерирует набор разумных рас для галактики.</summary>
+    /// <param name="galaxy">Галактика.</param>
+    public IReadOnlyList<RaceData> GetGalaxyRaces(GalaxyData galaxy)
+    {
+        ArgumentNullException.ThrowIfNull(galaxy);
+        return RaceGenerator.GenerateGalaxyRaces(galaxy.Seed);
+    }
+
+    /// <summary>Генерирует корабль заданного класса по сиду галактики.</summary>
+    /// <param name="galaxy">Галактика.</param>
+    /// <param name="type">Класс корабля.</param>
+    public ShipData GetShip(GalaxyData galaxy, ShipType type)
+    {
+        ArgumentNullException.ThrowIfNull(galaxy);
+        return ShipGenerator.GenerateShip(galaxy.Seed, type);
+    }
 
     /// <summary>Генерирует галактику, логируя результат.</summary>
     public GalaxyData GetGalaxyLogged(int galaxyIndex)
