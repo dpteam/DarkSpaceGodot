@@ -1,56 +1,60 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/Gameplay/Ship/SystemFlightView.cs" id="1_flight"]
+[ext_resource type="Script" path="res://src/Gameplay/Ship/ShipHud.cs" id="2_hud"]
 
 [node name="SystemFlightView" type="Node3D"]
 script = ExtResource("1_flight")
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="Hud" type="CanvasLayer" parent="."]
 
-[node name="Hud" type="Label" parent="UI"]
-offset_left = 24.0
-offset_top = 16.0
-offset_right = 640.0
-offset_bottom = 160.0
+[node name="Scanner" type="Control" parent="Hud"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_hud")
+
+[node name="Status" type="Label" parent="Hud"]
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 300.0
+offset_bottom = 90.0
 theme_override_colors/font_color = Color(0.49, 0.99, 0, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 1
 theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 18
-text = "Ожидание состояния..."
+theme_override_font_sizes/font_size = 16
+text = "Скорость 0.0"
 
-[node name="TargetInfo" type="Label" parent="UI"]
+[node name="TargetInfo" type="Label" parent="Hud"]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -640.0
+offset_left = -620.0
 offset_top = 16.0
 offset_right = -24.0
-offset_bottom = 48.0
+offset_bottom = 44.0
 grow_horizontal = 0
 theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 2
 text = "Цель не выбрана"
 
-[node name="VelocityVector" type="Label" parent="UI"]
-offset_left = 760.0
-offset_top = 430.0
-offset_right = 840.0
-offset_bottom = 460.0
-theme_override_colors/font_color = Color(0.49, 0.99, 0, 1)
-theme_override_font_sizes/font_size = 26
-text = ""
-
-[node name="Help" type="Label" parent="UI"]
-anchors_preset = 2
+[node name="Help" type="Label" parent="Hud"]
+anchors_preset = 12
 anchor_top = 1.0
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -40.0
-offset_right = 1500.0
-offset_bottom = -16.0
+offset_left = 20.0
+offset_top = -140.0
+offset_right = -20.0
+offset_bottom = -120.0
+grow_horizontal = 2
 grow_vertical = 0
-theme_override_colors/font_color = Color(0.55, 0.62, 0.75, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.5, 0.6, 0.7, 1)
+theme_override_font_sizes/font_size = 12
 text = "..."
