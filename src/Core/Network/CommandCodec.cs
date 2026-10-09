@@ -38,6 +38,12 @@ public static class CommandCodec
             case MoveCommand move:
                 obj["thrustX"] = move.ThrustX;
                 obj["thrustY"] = move.ThrustY;
+                obj["thrustZ"] = move.ThrustZ;
+                break;
+            case SetTargetCommand target:
+                obj["bodyIndex"] = target.BodyIndex;
+                break;
+            case DockCommand:
                 break;
             case JumpCommand jump:
                 obj["targetGalaxy"] = jump.TargetGalaxyIndex;
@@ -85,7 +91,14 @@ public static class CommandCodec
 
             return type switch
             {
-                CommandType.Move => new MoveCommand(playerId, sequence, (double?)obj["thrustX"] ?? 0.0, (double?)obj["thrustY"] ?? 0.0),
+                CommandType.Move => new MoveCommand(
+                    playerId,
+                    sequence,
+                    (double?)obj["thrustX"] ?? 0.0,
+                    (double?)obj["thrustY"] ?? 0.0,
+                    (double?)obj["thrustZ"] ?? 0.0),
+                CommandType.SetTarget => new SetTargetCommand(playerId, sequence, (int?)obj["bodyIndex"] ?? -1),
+                CommandType.Dock => new DockCommand(playerId, sequence),
                 CommandType.Jump => new JumpCommand(playerId, sequence, (int?)obj["targetGalaxy"] ?? 0),
                 CommandType.BuyItem => new BuyItemCommand(playerId, sequence, (int?)obj["itemId"] ?? -1, (int?)obj["quantity"] ?? 0),
                 CommandType.SellItem => new SellItemCommand(playerId, sequence, (int?)obj["itemId"] ?? -1, (int?)obj["quantity"] ?? 0),

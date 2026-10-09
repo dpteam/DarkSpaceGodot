@@ -97,4 +97,42 @@ public sealed class MultiplayerLoopbackIntegrationTests
 
         return server.CurrentSnapshot;
     }
+
+    [Fact]
+    public void Server_HandlesTargetAndDockCommands()
+    {
+        var server = new GameServer(WorldSeed);
+        LoopbackTransport.CreatePair(out LoopbackTransport clientTransport, out LoopbackTransport serverTransport);
+        var client = new GameClient(clientTransport);
+        server.AddConnection(1, serverTransport);
+
+        client.Send(new SetTargetCommand(1, 0, 1));
+        server.Step(Dt);
+        Assert.Equal(1, client.Latest!.TargetBodyIndex);
+
+        // Стыковка вдали от планеты не должна срабатывать.
+        client.Send(new DockCommand(1, 1));
+        server.Step(Dt);
+        Assert.Equal(-1, client.Latest!.DockedBodyIndex);
+    }
+
+    [Fact]
+    public void ThreeDimensionalFlight_IsSynchronized()
+    {
+        var server = new GameServer(WorldSeed);
+        LoopbackTransport.CreatePair(out LoopbackTransport clientTransport, out LoopbackTransport serverTransport);
+        var client = new GameClient(clientTransport);
+        server.AddConnection(1, serverTransport);
+
+        // Тяга по всем трём осям.
+        client.Send(new MoveCommand(1, 0, 0.3, 0.2, -0.4));
+        for (int i = 0; i < 60; i++)
+        {
+            server.Step(Dt);
+        }
+
+        Assert.NotNull(client.Latest);
+        Assert.Equal(server.CurrentSnapshot.Position, client.Latest!.Position);
+        Assert.True(client.Latest.Position.Z < 0, "Тяга по -Z должна привести к отрицательной координате Z.");
+    }
 }
