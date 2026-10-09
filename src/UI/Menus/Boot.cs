@@ -1,9 +1,12 @@
-using System.Text;
 using System.Threading.Tasks;
 using DarkSpace.Core.Data;
 using DarkSpace.Core.Data.Save;
 using DarkSpace.Core.Generation;
 using DarkSpace.Core.Systems.Alchemy;
+using DarkSpace.Core.Systems.Economy;
+using DarkSpace.Core.Systems.Factions;
+using DarkSpace.Core.Systems.Items;
+using DarkSpace.Core.Systems.Travel;
 using DarkSpace.Core.Utils.Logging;
 using DarkSpace.Gameplay;
 using Godot;
@@ -32,13 +35,26 @@ public partial class Boot : Control
         _output = GetNode<RichTextLabel>("Output");
         _output.Clear();
 
-        AppendLine("[color=#7CFC00][b]DARK SPACE[/b][/color] — диагностика Этапа 1 (Фундамент)");
+        AppendLine("[color=#7CFC00][b]DARK SPACE[/b][/color] — диагностика Этапов 1–2 (Фундамент + Процедурная генерация)");
         AppendLine("------------------------------------------------------------");
 
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
+    {
+        try
+        {
+            await RunDiagnosticsAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Boot", $"Сбой инициализации: {ex}");
+            AppendLine($"[color=red]Сбой инициализации: {ex.Message}[/color]");
+        }
+    }
+
+    private async Task RunDiagnosticsAsync()
     {
         string saveDirectory = ProjectSettings.GlobalizePath("user://saves");
         var session = new GameSession(DefaultWorldSeed, saveDirectory);
@@ -70,12 +86,53 @@ public partial class Boot : Control
         CombinationResult combo = AlchemySystem.Combine(hydrogen, uranium);
         AppendLine($"[color=#00E5FF]Алхимия[/color]: {combo.Name} — {combo.Description}");
 
-        // 5) Сохранение и загрузка.
+        // 5) Расы галактики.
+        var races = session.GetGalaxyRaces(galaxy);
+        AppendLine($"[color=#00E5FF]Расы[/color] ({races.Count}):");
+        foreach (RaceData race in races)
+        {
+            AppendLine($"  • {race.Name} — {race.Culture}");
+        }
+
+        // 6) Поселения (на первой планете с городами).
+        AppendLine("[color=#00E5FF]Поселения[/color]:");
+        bool anyCity = false;
+        for (int i = 0; i < system.PlanetCount && !anyCity; i++)
+        {
+            PlanetData planet = PlanetGenerator.GeneratePlanet(system, i);
+            foreach (CityData city in CityGenerator.GenerateCities(system, planet))
+            {
+                AppendLine($"  • {city.Description}");
+                anyCity = true;
+            }
+        }
+
+        if (!anyCity)
+        {
+            AppendLine("  • В этой системе пока никто не живёт. Что, возможно, к лучшему.");
+        }
+
+        // 7) Предмет и рынок.
+        Item item = ItemGenerator.GenerateItem(galaxy.Seed);
+        long neutralPrice = MarketSystem.GetBuyPrice(item, system.Economy, 1.0, 0);
+        long honoredPrice = MarketSystem.GetBuyPrice(item, system.Economy, 1.0, 800);
+        AppendLine($"[color=#00E5FF]Торговля[/color]: «{item.Name}» ({item.Rarity}) — {neutralPrice} кр. нейтрально / " +
+                   $"{honoredPrice} кр. при уважении. {item.Description}");
+
+        // 8) Репутация (реплика NPC при враждебности).
+        AppendLine($"[color=#00E5FF]Репутация[/color]: „{ReputationSystem.GetGreeting(system.ControllingFaction, -500)}“");
+
+        // 9) Прыжок через чёрную дыру.
+        ShipData jumpShip = session.GetShip(galaxy, ShipType.Cruiser);
+        JumpResult jump = BlackHoleTravel.ComputeJump(galaxy.Seed, jumpShip, 1);
+        AppendLine($"[color=#00E5FF]Прыжок[/color]: исход «{jump.Outcome}» → галактика #{jump.TargetGalaxyIndex}. {jump.Narrative}");
+
+        // 10) Сохранение и загрузка.
         await DemonstrationSaveLoadAsync(session, galaxy);
 
         AppendLine("------------------------------------------------------------");
         AppendLine("[color=#7CFC00]Готово. Космос ждёт, пилот.[/color]");
-        Log.Info("Boot", "Диагностика Этапа 1 завершена успешно.");
+        Log.Info("Boot", "Диагностика Этапов 1–2 завершена успешно.");
     }
 
     private async Task DemonstrationSaveLoadAsync(GameSession session, GalaxyData galaxy)

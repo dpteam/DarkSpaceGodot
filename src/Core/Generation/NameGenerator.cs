@@ -81,6 +81,13 @@ public static class NameGenerator
     public static string CharacterName(DeterministicRandom random)
         => BuildWord(random, 1, 2);
 
+    /// <summary>Генерирует имя поселения (города/станции).</summary>
+    public static string CityName(DeterministicRandom random)
+    {
+        string[] suffixes = { "град", "полис", "станция", "падь", "рубеж", "приют", "узел", "слобода" };
+        return BuildWord(random, 1, 2) + random.Pick(suffixes);
+    }
+
     private static string BuildWord(DeterministicRandom random, int minSyllables, int maxSyllables)
     {
         int syllables = random.NextInt(minSyllables, maxSyllables + 1);

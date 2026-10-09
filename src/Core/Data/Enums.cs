@@ -193,3 +193,141 @@ public enum CurrencyType
     /// <summary>Тёмные кристаллы — добываются в опасных зонах.</summary>
     DarkCrystals,
 }
+
+/// <summary>Базовый архетип разумной расы.</summary>
+public enum RaceArchetype
+{
+    /// <summary>Люди — приспособленцы и бюрократы.</summary>
+    Human,
+
+    /// <summary>Рептилоиды — холоднокровные прагматики-долгожители.</summary>
+    Reptilian,
+
+    /// <summary>Насекомообразные — коллективисты ульев.</summary>
+    Insectoid,
+
+    /// <summary>Энергетические сущности — чистое сознание без физической оболочки.</summary>
+    EnergyBeing,
+
+    /// <summary>Киборги — наполовину машины, вечный ремонт и апгрейд.</summary>
+    Cyborg,
+
+    /// <summary>Синтетики — искусственный коллективный разум.</summary>
+    Synthetic,
+
+    /// <summary>Амфибии — обитатели океанических миров.</summary>
+    Amphibious,
+
+    /// <summary>Грибоиды — симбиотические организмы-сети.</summary>
+    Fungoid,
+}
+
+/// <summary>Тип поселения (города) на планете.</summary>
+public enum CityType
+{
+    /// <summary>Мегаполис — многомиллиардный улей цивилизации.</summary>
+    Megacity,
+
+    /// <summary>Колония — опорный пункт расселения.</summary>
+    Colony,
+
+    /// <summary>Шахтёрский посёлок — добыча ресурсов.</summary>
+    MiningSettlement,
+
+    /// <summary>Религиозная община — приход Ордена Хранителей.</summary>
+    ReligiousCommunity,
+
+    /// <summary>Военная база — гарнизон Империи Зари.</summary>
+    MilitaryBase,
+
+    /// <summary>Пиратский притон — убежище Свободных Кланов и контрабандистов.</summary>
+    PirateDen,
+
+    /// <summary>Торговый узел — перевалочная станция Синдиката Пустоты.</summary>
+    TradingHub,
+
+    /// <summary>Научный аванпост — исследовательская станция.</summary>
+    ResearchOutpost,
+}
+
+/// <summary>Тип инфраструктурного объекта в поселении.</summary>
+public enum InfrastructureType
+{
+    /// <summary>Космопорт — посадка, взлёт, стыковка.</summary>
+    Spaceport,
+
+    /// <summary>Заправочная станция.</summary>
+    RefuelStation,
+
+    /// <summary>Ремонтный док.</summary>
+    RepairDock,
+
+    /// <summary>Рынок — торговля ресурсами и предметами.</summary>
+    Market,
+
+    /// <summary>Храм Вселенского Православия.</summary>
+    Temple,
+
+    /// <summary>Бар — слухи, контракты, неприятности.</summary>
+    Bar,
+
+    /// <summary>Бордель — ещё слухи и ещё неприятности.</summary>
+    Brothel,
+
+    /// <summary>Тюрьма — для тех, кто сомневался в законе.</summary>
+    Prison,
+}
+
+/// <summary>Редкость предмета.</summary>
+public enum ItemRarity
+{
+    /// <summary>Обычный предмет.</summary>
+    Common,
+
+    /// <summary>Необычный предмет.</summary>
+    Uncommon,
+
+    /// <summary>Редкий предмет.</summary>
+    Rare,
+
+    /// <summary>Эпический предмет.</summary>
+    Epic,
+
+    /// <summary>Легендарный предмет.</summary>
+    Legendary,
+}
+
+/// <summary>Уровень отношения фракции к игроку (производный от репутации -1000..+1000).</summary>
+public enum ReputationLevel
+{
+    /// <summary>Ненависть.</summary>
+    Hated,
+
+    /// <summary>Враждебность.</summary>
+    Hostile,
+
+    /// <summary>Неприязнь.</summary>
+    Unfriendly,
+
+    /// <summary>Нейтралитет.</summary>
+    Neutral,
+
+    /// <summary>Дружелюбие.</summary>
+    Friendly,
+
+    /// <summary>Уважение.</summary>
+    Honored,
+}
+
+/// <summary>Итог прыжка через чёрную дыру.</summary>
+public enum JumpOutcome
+{
+    /// <summary>Прыжок удался, корабль невредим.</summary>
+    Safe,
+
+    /// <summary>Прыжок удался, но корабль повреждён.</summary>
+    Damaged,
+
+    /// <summary>Корабль уничтожен при прыжке.</summary>
+    Destroyed,
+}

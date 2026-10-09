@@ -1,11 +1,10 @@
 ; Engine configuration file.
-; Dark Space — procedural space sim / RPG / survival
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
-; Формат: Godot 4.7. Правь через редактор Godot, а не вручную, где это возможно.
-;
-; ВАЖНО (RDP): целевой рендер игры — Forward+ (Vulkan). В RDP-сессии он падает
-; в драйвере NVIDIA, поэтому для разработки по RDP используй compatibility-рендер:
-; см. tools/open-editor.cmd и MEMORY.md (ENV-001).
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -16,12 +15,8 @@ config/description="Процедурный космический симулят
 config/version="0.1.0"
 run/main_scene="res://src/UI/Menus/BootScene.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
-config/icon="res://icon.svg"
 boot_splash/show_image=false
-
-[dotnet]
-
-project/assembly_name="DarkSpace"
+config/icon="res://icon.svg"
 
 [display]
 
@@ -29,7 +24,10 @@ window/size/viewport_width=1600
 window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 
+[dotnet]
+
+project/assembly_name="DarkSpace"
+
 [rendering]
 
-renderer/rendering_method="forward_plus"
 environment/defaults/default_clear_color=Color(0.02, 0.02, 0.05, 1)
