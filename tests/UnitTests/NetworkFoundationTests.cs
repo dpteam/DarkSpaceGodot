@@ -83,13 +83,13 @@ public sealed class NetworkFoundationTests
         var client = new GameClient(clientTransport);
         server.AddConnection(1, serverTransport);
 
-        // Strafe вправо (локально) при единичной ориентации даёт мировое +X.
-        client.Send(new MoveCommand(1, 0, 0.0, 1.0));
+        // Тяга вперёд (элитовская модель): должна появиться скорость.
+        client.Send(new MoveCommand(1, 0, 1.0, 0.0));
         server.Step(1.0 / 30.0);
 
         Assert.NotNull(client.Latest);
         Assert.Equal(1, client.Latest!.Tick);
-        Assert.True(client.Latest.Velocity.X > 0);
+        Assert.True(client.Latest.Speed > 0);
     }
 
     [Fact]

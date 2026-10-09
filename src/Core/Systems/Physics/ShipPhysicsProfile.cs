@@ -29,6 +29,10 @@ namespace DarkSpace.Core.Systems.Physics;
 /// <param name="AngularDamping">Коэффициент углового демпфирования (1/с): 0 — чистый Ньютон, &gt;0 — стабилизаторы.</param>
 /// <param name="LateralThrustFactor">Доля тяги латеральных/вертикальных двигателей от основной (0..1).</param>
 /// <param name="ReverseThrustFactor">Доля тяги обратного хода от основной (0..1).</param>
+/// <param name="MaxSpeed">Максимальная скорость в элитовской модели полёта (SU/с).</param>
+/// <param name="SpeedAcceleration">Ускорение изменения скорости в элитовской модели (SU/с²).</param>
+/// <param name="TurnResponsiveness">Отзывчивость разворота в элитовской модели (1/с): скорость, с которой
+/// угловая скорость выходит на заданную.</param>
 public readonly record struct ShipPhysicsProfile(
     double DryMass,
     double FuelMass,
@@ -38,7 +42,10 @@ public readonly record struct ShipPhysicsProfile(
     double MaxAngularRate,
     double AngularDamping,
     double LateralThrustFactor,
-    double ReverseThrustFactor)
+    double ReverseThrustFactor,
+    double MaxSpeed,
+    double SpeedAcceleration,
+    double TurnResponsiveness)
 {
     /// <summary>Профиль корабля игрока по умолчанию.</summary>
     public static ShipPhysicsProfile Default => new(
@@ -47,10 +54,13 @@ public readonly record struct ShipPhysicsProfile(
         Thrust: 4000.0,
         ExhaustVelocity: 1500.0,
         AngularAcceleration: 5.0,
-        MaxAngularRate: 2.4,
+        MaxAngularRate: 1.8,
         AngularDamping: 3.0,
         LateralThrustFactor: 1.0,
-        ReverseThrustFactor: 1.0);
+        ReverseThrustFactor: 1.0,
+        MaxSpeed: 60.0,
+        SpeedAcceleration: 35.0,
+        TurnResponsiveness: 6.0);
 
     /// <summary>Полная масса снаряжённого корабля.</summary>
     public double TotalMass => DryMass + FuelMass;

@@ -52,7 +52,7 @@ public sealed class NavigationDockingTests
     [Fact]
     public void Dock_WhenCloseToTarget_DocksAndZeroesVelocity()
     {
-        var sim = new WorldSimulation(1234);
+        var sim = new WorldSimulation(1234) { FlightMode = FlightMode.Newtonian };
         ApproachBody(sim, 0);
 
         sim.Enqueue(new SetTargetCommand(1, 1_000_000, 0));
@@ -66,7 +66,7 @@ public sealed class NavigationDockingTests
     [Fact]
     public void Thrust_WhileDocked_Undocks()
     {
-        var sim = new WorldSimulation(1234);
+        var sim = new WorldSimulation(1234) { FlightMode = FlightMode.Newtonian };
         ApproachBody(sim, 0);
 
         sim.Enqueue(new SetTargetCommand(1, 1_000_000, 0));
@@ -83,7 +83,7 @@ public sealed class NavigationDockingTests
     [Fact]
     public void Gravity_PullsShipTowardStar()
     {
-        var sim = new WorldSimulation(777);
+        var sim = new WorldSimulation(777) { FlightMode = FlightMode.Newtonian };
 
         // Разгоняем корабль в сторону от звезды (радиально наружу = +Z в мире при единичной ориентации).
         for (int i = 0; i < 120; i++)
