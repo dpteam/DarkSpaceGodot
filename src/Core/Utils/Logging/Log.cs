@@ -15,13 +15,21 @@ public static class Log
 {
     private static readonly List<ILogSink> Sinks = new();
 
-    /// <summary>Добавляет приёмник сообщений.</summary>
+    /// <summary>Добавляет приёмник сообщений. Повторное добавление приёмника того же типа игнорируется.</summary>
     /// <exception cref="ArgumentNullException">Если <paramref name="sink"/> равен <see langword="null"/>.</exception>
     public static void AddSink(ILogSink sink)
     {
         ArgumentNullException.ThrowIfNull(sink);
         lock (Sinks)
         {
+            foreach (ILogSink existing in Sinks)
+            {
+                if (existing.GetType() == sink.GetType())
+                {
+                    return; // Такой приёмник уже зарегистрирован.
+                }
+            }
+
             Sinks.Add(sink);
         }
     }

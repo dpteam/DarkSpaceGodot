@@ -14,51 +14,70 @@ using Godot;
 namespace DarkSpace.UI.Menus;
 
 /// <summary>
-/// Стартовая сцена (boot). Инициализирует подсистемы и показывает диагностику Этапа 1.
+/// Экран «Обзор вселенной»: показывает содержимое текущей сессии (галактика, система,
+/// планеты, расы, поселения, торговля, репутация, прыжок) и служит вертикальным срезом
+/// возможностей Этапов 1–2.
 /// </summary>
 /// <remarks>
-/// Служит временным «экраном загрузки»: регистрирует логгер, создаёт игровую сессию,
-/// прогоняет генерацию галактики/системы/планеты/корабля, алхимию и цикл сохранения.
+/// Данные берутся из <see cref="GameContext.Session"/> (создаётся главным меню). Если сессия
+/// отсутствует, используется сид по умолчанию. Все операции ввода-вывода — асинхронные.
 /// </remarks>
-public partial class Boot : Control
+public partial class UniverseOverview : Control
 {
-    private const ulong DefaultWorldSeed = 0x4F4459414C555441UL; // "ODYALUTA"
-
     private RichTextLabel _output = null!;
 
     /// <inheritdoc />
     public override void _Ready()
     {
-        // Регистрируем приёмник логов — единственное место вывода в консоль движка.
         Log.AddSink(new GodotLogSink());
+        EnsureSaveDirectory();
 
         _output = GetNode<RichTextLabel>("Output");
         _output.Clear();
 
-        AppendLine("[color=#7CFC00][b]DARK SPACE[/b][/color] — диагностика Этапов 1–2 (Фундамент + Процедурная генерация)");
+        Button backButton = GetNode<Button>("MenuButton");
+        backButton.Pressed += OnBackPressed;
+
+        AppendLine("[color=#7CFC00][b]DARK SPACE[/b][/color] — обзор вселенной");
         AppendLine("------------------------------------------------------------");
 
         _ = InitializeAsync();
+    }
+
+    private void OnBackPressed()
+        => GetTree().ChangeSceneToFile("res://src/UI/Menus/MainMenu.tscn");
+
+    /// <summary>
+    /// Гарантирует, что каталог сохранений задан, даже если сцена запущена напрямую
+    /// (без прохода через главное меню, которое обычно его устанавливает).
+    /// </summary>
+    private static void EnsureSaveDirectory()
+    {
+        if (string.IsNullOrEmpty(GameContext.SaveDirectory))
+        {
+            GameContext.SaveDirectory = ProjectSettings.GlobalizePath("user://saves");
+        }
     }
 
     private async Task InitializeAsync()
     {
         try
         {
-            await RunDiagnosticsAsync();
+            await RunAsync();
         }
         catch (Exception ex)
         {
-            Log.Error("Boot", $"Сбой инициализации: {ex}");
+            Log.Error("UniverseOverview", $"Сбой инициализации: {ex}");
             AppendLine($"[color=red]Сбой инициализации: {ex.Message}[/color]");
         }
     }
 
-    private async Task RunDiagnosticsAsync()
+    private async Task RunAsync()
     {
-        string saveDirectory = ProjectSettings.GlobalizePath("user://saves");
-        var session = new GameSession(DefaultWorldSeed, saveDirectory);
-        Log.Info("Boot", $"Сессия запущена. Каталог сохранений: {saveDirectory}");
+        GameSession session = GameContext.GetOrCreate();
+        Log.Info("UniverseOverview", $"Мировой сид: 0x{session.WorldSeed:X16}.");
+
+        AppendLine($"Мировой сид: 0x{session.WorldSeed:X16}");
 
         // 1) Галактика.
         GalaxyData galaxy = session.GetGalaxy(0);
@@ -77,7 +96,7 @@ public partial class Boot : Control
         }
 
         // 3) Корабль.
-        ShipData ship = ShipGenerator.GenerateShip(galaxy.Seed, ShipType.Courier);
+        ShipData ship = session.GetShip(galaxy, ShipType.Courier);
         AppendLine($"[color=#00E5FF]Корабль[/color]: {ship.Description}");
 
         // 4) Алхимия.
@@ -131,8 +150,8 @@ public partial class Boot : Control
         await DemonstrationSaveLoadAsync(session, galaxy);
 
         AppendLine("------------------------------------------------------------");
-        AppendLine("[color=#7CFC00]Готово. Космос ждёт, пилот.[/color]");
-        Log.Info("Boot", "Диагностика Этапов 1–2 завершена успешно.");
+        AppendLine("[color=#7CFC00]Космос ждёт, пилот. (F5 — обновить сцену)[/color]");
+        Log.Info("UniverseOverview", "Обзор вселенной построен успешно.");
     }
 
     private async Task DemonstrationSaveLoadAsync(GameSession session, GalaxyData galaxy)
@@ -153,7 +172,7 @@ public partial class Boot : Control
         else
         {
             AppendLine($"[color=red]Сохранение: ошибка — {result.Error}[/color]");
-            Log.Error("Boot", $"Не удалось загрузить сохранение: {result.Error}");
+            Log.Error("UniverseOverview", $"Не удалось загрузить сохранение: {result.Error}");
         }
     }
 
