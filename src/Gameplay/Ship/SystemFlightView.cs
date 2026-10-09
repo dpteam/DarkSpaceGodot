@@ -363,9 +363,9 @@ public partial class SystemFlightView : Node3D
         double speed = s.Velocity.Length;
         _hud.Text =
             $"Тик {s.Tick}   ·   система «{s.SystemName}» (галактика #{s.GalaxyIndex})\n" +
-            $"Скорость   {speed,8:0.0}\n" +
-            $"Кредиты    {s.Credits,8:0}\n" +
-            $"Топливо    {s.Fuel,8:0.0}" +
+            $"Скорость   {speed,8:0.0}   ·   масса {s.ShipMass,6:0.0}\n" +
+            $"Δv         {s.RemainingDeltaV,8:0.0}   ·   топливо {s.Fuel,6:0.0}\n" +
+            $"Кредиты    {s.Credits,8:0}" +
             (s.Destroyed ? "\n[color=red]КОРАБЛЬ УНИЧТОЖЕН[/color]" : string.Empty);
 
         if (s.DockedBodyIndex >= 0)

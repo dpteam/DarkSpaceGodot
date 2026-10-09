@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DarkSpace.Core.Data;
 using DarkSpace.Core.Generation;
+using DarkSpace.Core.Systems.Physics;
 
 namespace DarkSpace.Core.Systems.Orbital;
 
@@ -25,11 +26,12 @@ public sealed class StarSystemModel
     {
         ArgumentNullException.ThrowIfNull(system);
         System = system;
+        Mu = StellarGravitationalParameter(system.Star);
 
         _bodies = new List<SystemBody>(system.PlanetCount);
         for (int i = 0; i < system.PlanetCount; i++)
         {
-            OrbitData orbit = OrbitGenerator.GenerateOrbit(system, i);
+            OrbitData orbit = OrbitGenerator.GenerateOrbit(system, i, Mu);
             PlanetData planet = PlanetGenerator.GeneratePlanet(system, i);
             _bodies.Add(new SystemBody(i, orbit, planet));
         }
@@ -37,6 +39,9 @@ public sealed class StarSystemModel
 
     /// <summary>Данные системы.</summary>
     public StarSystemData System { get; }
+
+    /// <summary>Гравитационный параметр звезды μ (SU³/с²). Единый для орбит планет и гравитации корабля.</summary>
+    public double Mu { get; }
 
     /// <summary>Планеты системы вместе с орбитами.</summary>
     public IReadOnlyList<SystemBody> Bodies => _bodies;
@@ -77,6 +82,30 @@ public sealed class StarSystemModel
 
     /// <summary>Расстояние от точки до звезды (в начале координат).</summary>
     public static double StarDistance(Vector3D position) => position.Length;
+
+    /// <summary>Круговая орбитальная скорость на радиусе r вокруг этой звезды: v = √(μ/r).</summary>
+    public double CircularSpeed(double radius) => Astro.CircularSpeed(Mu, radius);
+
+    /// <summary>Скорость убегания на радиусе r: v_esc = √(2μ/r).</summary>
+    public double EscapeSpeed(double radius) => Astro.EscapeSpeed(Mu, radius);
+
+    /// <summary>
+    /// Гравитационный параметр звезды по её спектральному классу. Источник истины для орбит и гравитации.
+    /// </summary>
+    public static double StellarGravitationalParameter(SpectralClass star) => star switch
+    {
+        SpectralClass.O => 800.0,
+        SpectralClass.B => 700.0,
+        SpectralClass.A => 600.0,
+        SpectralClass.F => 500.0,
+        SpectralClass.G => 400.0,
+        SpectralClass.K => 300.0,
+        SpectralClass.M => 200.0,
+        SpectralClass.NeutronStar => 900.0,
+        SpectralClass.Binary => 500.0,
+        SpectralClass.BlackHole => 900.0,
+        _ => 300.0,
+    };
 
     /// <summary>
     /// Возвращает индекс ближайшей планеты к точке, либо -1, если планет нет.

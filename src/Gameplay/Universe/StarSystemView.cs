@@ -47,6 +47,7 @@ public partial class StarSystemView : Node3D
     private MeshInstance3D _selectionRing = null!;
 
     private StarSystemData _system = null!;
+    private StarSystemModel _model = null!;
     private double _simTime;
     private double _timeScale = 1.0;
     private int _selected = -1;
@@ -78,6 +79,7 @@ public partial class StarSystemView : Node3D
         var session = GameContext.GetOrCreate();
         GalaxyData galaxy = session.GetGalaxy(0);
         _system = StarSystemGenerator.GenerateSystem(galaxy, 0);
+        _model = new StarSystemModel(_system);
 
         _title.Text = $"Система «{_system.Name}»   ·   звезда класса {_system.Star}   ·   фракция: {_system.ControllingFaction}";
 
@@ -139,12 +141,11 @@ public partial class StarSystemView : Node3D
 
     private void BuildPlanets()
     {
-        IReadOnlyList<OrbitData> orbits = OrbitGenerator.GenerateOrbits(_system);
-
-        for (int i = 0; i < orbits.Count; i++)
+        for (int i = 0; i < _model.BodyCount; i++)
         {
-            OrbitData orbit = orbits[i];
-            PlanetData planet = PlanetGenerator.GeneratePlanet(_system, i);
+            SystemBody body = _model.Body(i);
+            OrbitData orbit = body.Orbit;
+            PlanetData planet = body.Planet;
 
             Color baseColor = PlanetVisuals.BaseColor(planet.Type);
             PlanetVisuals.Palette palette = PlanetVisuals.For(planet.Type);

@@ -18,7 +18,7 @@ public sealed class WorldSimulationTests
         Assert.Equal(0, sim.GalaxyIndex);
         Assert.Equal(0, sim.SystemIndex);
         Assert.Equal(WorldSimulation.StartingCredits, sim.Credits);
-        Assert.Equal(WorldSimulation.MaxFuel, sim.Fuel);
+        Assert.Equal(sim.MaxFuel, sim.Fuel);
         Assert.False(sim.Destroyed);
     }
 
@@ -123,7 +123,7 @@ public sealed class WorldSimulationTests
         sim.Advance(Dt);
 
         SimulationSnapshot snap = sim.CaptureSnapshot();
-        Assert.True(snap.Fuel < WorldSimulation.MaxFuel);
+        Assert.True(snap.Fuel < sim.MaxFuel);
         if (!snap.Destroyed)
         {
             Assert.Equal(5, snap.GalaxyIndex);
