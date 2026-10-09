@@ -1,15 +1,15 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://src/UI/Menus/Boot.cs" id="1_boot"]
+[ext_resource type="Script" path="res://src/UI/Menus/UniverseOverview.cs" id="1_overview"]
 
-[node name="BootScene" type="Control"]
+[node name="UniverseOverview" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_boot")
+script = ExtResource("1_overview")
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
@@ -26,7 +26,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
-offset_top = 24.0
+offset_top = 64.0
 offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 2
@@ -34,3 +34,15 @@ grow_vertical = 2
 bbcode_enabled = true
 fit_content = false
 scroll_active = true
+
+[node name="MenuButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 52.0
+grow_horizontal = 0
+text = "В главное меню"
