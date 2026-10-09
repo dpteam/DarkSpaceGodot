@@ -6,6 +6,7 @@ using DarkSpace.Core.Generation;
 using DarkSpace.Core.Utils;
 using DarkSpace.Core.Utils.Logging;
 using DarkSpace.Gameplay;
+using DarkSpace.UI.Widgets;
 using Godot;
 
 namespace DarkSpace.UI.Menus;
@@ -73,6 +74,7 @@ public partial class MainMenu : Control
         GetNode<Button>("Layout/Menu/NewGameButton").Pressed += OnNewGame;
         _continueButton.Pressed += OnContinue;
         GetNode<Button>("Layout/Menu/SandboxButton").Pressed += OnSandbox;
+        GetNode<Button>("Layout/Menu/SystemMapButton").Pressed += OnSystemMap;
         GetNode<Button>("Layout/Menu/SettingsButton").Pressed += () => _settingsPanel.Visible = !_settingsPanel.Visible;
         GetNode<Button>("Layout/Menu/QuitButton").Pressed += () => GetTree().Quit();
 
@@ -107,6 +109,12 @@ public partial class MainMenu : Control
     {
         GameContext.GetOrCreate();
         GetTree().ChangeSceneToFile("res://src/Gameplay/Ship/FlightSandbox.tscn");
+    }
+
+    private void OnSystemMap()
+    {
+        GameContext.GetOrCreate();
+        GetTree().ChangeSceneToFile("res://src/Gameplay/Universe/StarSystemView.tscn");
     }
 
     private void OnContinue()
@@ -161,7 +169,7 @@ public partial class MainMenu : Control
 
     private void ApplyPlanet(PlanetData planet)
     {
-        PlanetPalette palette = PaletteFor(planet.Type);
+        PlanetVisuals.Palette palette = PlanetVisuals.For(planet.Type);
 
         _material.SetShaderParameter("aspect", _aspect);
         _material.SetShaderParameter("planet_center", new Vector2(_aspect * 0.28f, 0.0f));
@@ -182,54 +190,4 @@ public partial class MainMenu : Control
     }
 
     private static Vector3 ToVec3(Color c) => new(c.R, c.G, c.B);
-
-    /// <summary>Цветовая палитра планеты по её типу.</summary>
-    private readonly record struct PlanetPalette(
-        Color Deep,
-        Color Land,
-        Color High,
-        Color Atmosphere,
-        bool HasWater,
-        bool GasBands,
-        float SeaLevel,
-        float Clouds,
-        float Emissive,
-        Color EmissiveColor);
-
-    private static PlanetPalette PaletteFor(PlanetType type) => type switch
-    {
-        PlanetType.Rocky => new(
-            new Color(0.14f, 0.12f, 0.11f), new Color(0.42f, 0.35f, 0.27f), new Color(0.62f, 0.60f, 0.56f),
-            new Color(0.35f, 0.5f, 0.8f), false, false, 0.5f, 0.05f, 0f, new Color(0, 0, 0)),
-        PlanetType.GasGiant => new(
-            new Color(0.30f, 0.20f, 0.12f), new Color(0.78f, 0.62f, 0.40f), new Color(0.92f, 0.86f, 0.72f),
-            new Color(0.7f, 0.5f, 0.3f), false, true, 0.5f, 0.12f, 0f, new Color(0, 0, 0)),
-        PlanetType.Ice => new(
-            new Color(0.10f, 0.18f, 0.30f), new Color(0.72f, 0.82f, 0.92f), new Color(0.95f, 0.98f, 1.0f),
-            new Color(0.6f, 0.8f, 1.0f), false, false, 0.5f, 0.35f, 0f, new Color(0, 0, 0)),
-        PlanetType.Oceanic => new(
-            new Color(0.01f, 0.08f, 0.25f), new Color(0.10f, 0.45f, 0.20f), new Color(0.75f, 0.80f, 0.65f),
-            new Color(0.25f, 0.6f, 1.0f), true, false, 0.62f, 0.30f, 0f, new Color(0, 0, 0)),
-        PlanetType.Volcanic => new(
-            new Color(0.10f, 0.02f, 0.01f), new Color(0.22f, 0.10f, 0.08f), new Color(0.45f, 0.20f, 0.12f),
-            new Color(1.0f, 0.35f, 0.10f), false, false, 0.5f, 0.10f, 1.0f, new Color(1.0f, 0.30f, 0.05f)),
-        PlanetType.Toxic => new(
-            new Color(0.06f, 0.12f, 0.04f), new Color(0.35f, 0.42f, 0.12f), new Color(0.60f, 0.68f, 0.20f),
-            new Color(0.6f, 0.9f, 0.2f), false, false, 0.5f, 0.25f, 0.5f, new Color(0.7f, 0.9f, 0.2f)),
-        PlanetType.Radioactive => new(
-            new Color(0.04f, 0.10f, 0.04f), new Color(0.15f, 0.28f, 0.10f), new Color(0.35f, 0.55f, 0.18f),
-            new Color(0.5f, 1.0f, 0.3f), false, false, 0.5f, 0.12f, 0.8f, new Color(0.5f, 1.0f, 0.25f)),
-        PlanetType.Desert => new(
-            new Color(0.20f, 0.14f, 0.08f), new Color(0.72f, 0.55f, 0.30f), new Color(0.88f, 0.78f, 0.55f),
-            new Color(0.8f, 0.6f, 0.3f), false, false, 0.5f, 0.02f, 0f, new Color(0, 0, 0)),
-        PlanetType.Jungle => new(
-            new Color(0.02f, 0.10f, 0.08f), new Color(0.08f, 0.32f, 0.10f), new Color(0.55f, 0.65f, 0.35f),
-            new Color(0.3f, 0.8f, 0.5f), true, false, 0.55f, 0.28f, 0f, new Color(0, 0, 0)),
-        PlanetType.Exotic => new(
-            new Color(0.10f, 0.02f, 0.16f), new Color(0.35f, 0.10f, 0.42f), new Color(0.75f, 0.45f, 0.85f),
-            new Color(0.8f, 0.4f, 1.0f), false, false, 0.5f, 0.20f, 0.6f, new Color(0.9f, 0.3f, 1.0f)),
-        _ => new(
-            new Color(0.10f, 0.10f, 0.12f), new Color(0.40f, 0.38f, 0.35f), new Color(0.65f, 0.63f, 0.60f),
-            new Color(0.4f, 0.6f, 0.9f), false, false, 0.5f, 0.10f, 0f, new Color(0, 0, 0)),
-    };
 }
