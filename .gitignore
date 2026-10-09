@@ -1,0 +1,53 @@
+# ============================================================================
+# Dark Space - .gitignore
+# ============================================================================
+
+# --- Godot ---
+.godot/
+.mono/
+data_*/
+*.translation
+export_presets.cfg
+
+# Godot export builds
+build/
+dist/
+*.pck
+*.zip
+
+# --- .NET / C# ---
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+.vscode/
+.idea/
+*.swp
+
+# --- NuGet ---
+packages/
+*.nupkg
+project.lock.json
+
+# --- OS ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# --- Logs / temp ---
+*.log
+logs/
+[Ll]og/
+temp/
+tmp/
+*.tmp
+
+# --- Local / secrets ---
+.env
+*.local
+secrets/
+.local/
