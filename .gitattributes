@@ -1,0 +1,24 @@
+# Нормализация переводов строк: в репозитории всегда LF.
+* text=auto eol=lf
+
+# Явно текстовые файлы
+*.cs      text diff=csharp
+*.csproj  text
+*.sln     text eol=crlf
+*.md      text
+*.json    text
+*.tscn    text
+*.tres    text
+*.godot   text
+*.gd      text
+*.svg     text
+
+# Бинарные файлы
+*.png     binary
+*.jpg     binary
+*.pck     binary
+*.dll     binary
+*.exe     binary
+
+# Godot: не пытаться сливать сгенерированные данные
+.godot/** -text

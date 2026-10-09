@@ -20,8 +20,22 @@
   - `SCENARIO.md` — сюжет, лор, фракции, религия, заготовки для расширения.
 - Инициализирован Git-репозиторий.
 
+- **2026-10-09** — **Этап 1 (Фундамент)** выполнен:
+  - Настроен проект Godot 4.7.2 (.NET) со сборкой C# (`project.godot`, `DarkSpace.csproj`, `icon.svg`).
+  - Выделено чистое ядро в отдельную библиотеку **`DarkSpace.Core`** (`net8.0`, без зависимости от Godot).
+  - Базовые структуры данных: `GalaxyData`, `StarSystemData`, `PlanetData`, `ShipData`, перечисления (`Enums.cs`).
+  - Детерминированный PRNG `DeterministicRandom` (SplitMix64) и утилита смешивания сидов `SeedHelper` (FNV-1a + SplitMix64).
+  - Процедурные генераторы: `GalaxyGenerator`, `StarSystemGenerator`, `PlanetGenerator`, `ShipGenerator`, `NameGenerator`, `DescriptionGenerator`.
+  - Алхимическая система ресурсов: 16 элементов (`ElementCatalog`), `AlchemySystem` (коммутативные комбинации, специальные и родовые рецепты).
+  - Система сохранений с бэкапами: `SaveGame` (+ схема, `Version`), `SaveManager` (атомарная запись), `SaveBackupManager` (ротация последних N), `SaveMigrations`, восстановление из бэкапа при повреждении.
+  - Логирование: `Log` + `ILogSink` (в ядре) и `GodotLogSink` (в слое движка, через `GD.PrintRich`).
+  - Минимальный Godot-слой: `GameSession`, стартовая сцена `BootScene` с диагностикой генерации и save/load.
+  - Тесты: **71 unit-тест** и **3 интеграционных теста** — все проходят.
+  - Инфраструктура: `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE` (MIT), PR-шаблон, CI-workflow (GitHub Actions).
+
 #### Изменено
-- _(пока пусто)_
+- **2026-10-09** — Скачана и подключена официальная сборка **Godot 4.7.2 (.NET/Mono)** (`__Tools/Godot_v4.7.2-stable_mono_win64`). Стандартная Steam-сборка 4.7.2 не поддерживает C# и не используется для разработки.
+- **2026-10-09** — `GodotSharp` 4.7.2 нацелен на **net8.0**, поэтому требование ТЗ (.NET 8) соблюдено. Локально установлен .NET SDK 9.0.311 (собирает `net8.0` при наличии рантайма / roll-forward).
 
 #### Удалено
 - _(пока пусто)_

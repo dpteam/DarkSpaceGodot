@@ -1,0 +1,32 @@
+; Engine configuration file.
+; Dark Space - procedural space sim / RPG / survival
+;
+; Формат: Godot 4.7
+; Правь через редактор Godot, а не вручную, где это возможно.
+
+config_version=5
+
+[application]
+
+config/name="Dark Space"
+config/description="Процедурный космический симулятор / RPG / выживание. 256 галактик, алхимия, мультиплеер и очень чёрный юмор."
+config/version="0.1.0"
+run/main_scene="res://src/UI/Menus/BootScene.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+boot_splash/show_image=false
+
+[dotnet]
+
+project/assembly_name="DarkSpace"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+environment/defaults/default_clear_color=Color(0.02, 0.02, 0.05, 1)

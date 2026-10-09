@@ -1,0 +1,25 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>DarkSpace</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <AssemblyName>DarkSpace</AssemblyName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Ядро вынесено в отдельную библиотеку без зависимости от Godot (см. ADR-002 в MEMORY.md). -->
+  <ItemGroup>
+    <ProjectReference Include="src/Core/DarkSpace.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Ядро и тесты не компилируются в сборку игры: они собираются отдельными проектами. -->
+  <ItemGroup>
+    <Compile Remove="src/Core/**/*.cs" />
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
+</Project>
