@@ -26,14 +26,16 @@ public sealed class StarSystemModel
     {
         ArgumentNullException.ThrowIfNull(system);
         System = system;
-        Mu = StellarGravitationalParameter(system.Star);
+        Mu = SystemScale.GravitationalParameter(system.Star);
+        StarRadius = SystemScale.StarRadius(system.Star);
 
         _bodies = new List<SystemBody>(system.PlanetCount);
         for (int i = 0; i < system.PlanetCount; i++)
         {
             OrbitData orbit = OrbitGenerator.GenerateOrbit(system, i, Mu);
             PlanetData planet = PlanetGenerator.GeneratePlanet(system, i);
-            _bodies.Add(new SystemBody(i, orbit, planet));
+            double radius = SystemScale.PlanetRadius(planet.Type);
+            _bodies.Add(new SystemBody(i, orbit, planet, radius));
         }
     }
 
@@ -42,6 +44,9 @@ public sealed class StarSystemModel
 
     /// <summary>Гравитационный параметр звезды μ (SU³/с²). Единый для орбит планет и гравитации корабля.</summary>
     public double Mu { get; }
+
+    /// <summary>Радиус звезды в условных единицах системы.</summary>
+    public double StarRadius { get; }
 
     /// <summary>Планеты системы вместе с орбитами.</summary>
     public IReadOnlyList<SystemBody> Bodies => _bodies;
@@ -89,23 +94,11 @@ public sealed class StarSystemModel
     /// <summary>Скорость убегания на радиусе r: v_esc = √(2μ/r).</summary>
     public double EscapeSpeed(double radius) => Astro.EscapeSpeed(Mu, radius);
 
-    /// <summary>
-    /// Гравитационный параметр звезды по её спектральному классу. Источник истины для орбит и гравитации.
-    /// </summary>
-    public static double StellarGravitationalParameter(SpectralClass star) => star switch
-    {
-        SpectralClass.O => 800.0,
-        SpectralClass.B => 700.0,
-        SpectralClass.A => 600.0,
-        SpectralClass.F => 500.0,
-        SpectralClass.G => 400.0,
-        SpectralClass.K => 300.0,
-        SpectralClass.M => 200.0,
-        SpectralClass.NeutronStar => 900.0,
-        SpectralClass.Binary => 500.0,
-        SpectralClass.BlackHole => 900.0,
-        _ => 300.0,
-    };
+    /// <summary>Радиус планеты по индексу, в условных единицах системы.</summary>
+    public double BodyRadius(int bodyIndex) => Body(bodyIndex).Radius;
+
+    /// <summary>Радиус стыковки с планетой: поверхность планеты плюс зазор.</summary>
+    public double DockRadius(int bodyIndex) => Body(bodyIndex).Radius + SystemScale.DockingMargin;
 
     /// <summary>
     /// Возвращает индекс ближайшей планеты к точке, либо -1, если планет нет.

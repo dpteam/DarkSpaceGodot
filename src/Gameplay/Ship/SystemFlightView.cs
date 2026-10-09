@@ -35,13 +35,15 @@ public partial class SystemFlightView : Node3D
 {
     private const double FixedDelta = 1.0 / 60.0;
     private const int DustCount = 420;
-    private const float DustBox = 70.0f;
+    private const float DustBox = 90.0f;
+    private const float CameraFar = 40000.0f;
 
     private GameServer _server = null!;
     private GameClient _client = null!;
     private StarSystemModel _model = null!;
 
     private Camera3D _camera = null!;
+    private MeshInstance3D _starNode = null!;
     private ShipHud _hud = null!;
     private Label _status = null!;
     private Label _targetInfo = null!;
@@ -118,12 +120,14 @@ public partial class SystemFlightView : Node3D
             EmissionEnergyMultiplier = energy,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         };
-        AddChild(new MeshInstance3D
+        float starRadius = (float)_model.StarRadius;
+        _starNode = new MeshInstance3D
         {
             Name = "Star",
-            Mesh = new SphereMesh { Radius = 2.2f, Height = 4.4f, RadialSegments = 32, Rings = 16 },
+            Mesh = new SphereMesh { Radius = starRadius, Height = starRadius * 2.0f, RadialSegments = 48, Rings = 24 },
             MaterialOverride = starMaterial,
-        });
+        };
+        AddChild(_starNode);
 
         if (_model.System.Star != SpectralClass.BlackHole)
         {
@@ -132,14 +136,15 @@ public partial class SystemFlightView : Node3D
                 Name = "StarLight",
                 LightColor = starColor,
                 LightEnergy = energy,
-                OmniRange = 900.0f,
+                OmniRange = 20000.0f,
+                OmniAttenuation = 0.4f,
             });
         }
 
         for (int i = 0; i < _model.BodyCount; i++)
         {
             PlanetVisuals.Palette palette = PlanetVisuals.For(_model.Body(i).Planet.Type);
-            float radius = PlanetVisuals.Radius(_model.Body(i).Planet.Type) * 1.7f;
+            float radius = (float)_model.Body(i).Radius;
 
             var material = new StandardMaterial3D { AlbedoColor = palette.Land };
             if (palette.Emissive > 0.01f)
@@ -152,14 +157,14 @@ public partial class SystemFlightView : Node3D
             var mesh = new MeshInstance3D
             {
                 Name = $"Planet_{i}",
-                Mesh = new SphereMesh { Radius = radius, Height = radius * 2.0f, RadialSegments = 24, Rings = 12 },
+                Mesh = new SphereMesh { Radius = radius, Height = radius * 2.0f, RadialSegments = 32, Rings = 16 },
                 MaterialOverride = material,
             };
             AddChild(mesh);
             _planetNodes.Add(mesh);
         }
 
-        _camera = new Camera3D { Name = "Camera", Current = true, Fov = 78.0f, Near = 0.05f };
+        _camera = new Camera3D { Name = "Camera", Current = true, Fov = 78.0f, Near = 0.1f, Far = CameraFar };
         AddChild(_camera);
     }
 
@@ -187,10 +192,10 @@ public partial class SystemFlightView : Node3D
         var rng = new RandomNumberGenerator();
         rng.Randomize();
         _dustPositions = new Vector3[DustCount];
-        Vector3 ship = ToGodot(_client.Latest?.Position ?? WorldSimulation.ShipSpawn);
+        // Floating origin: корабль в начале координат, поэтому пыль строится вокруг нуля.
         for (int i = 0; i < DustCount; i++)
         {
-            _dustPositions[i] = ship + RandomInBox(rng, DustBox);
+            _dustPositions[i] = RandomInBox(rng, DustBox);
             _dust.SetInstanceTransform(i, new Transform3D(Basis.Identity, _dustPositions[i]));
         }
     }
@@ -226,7 +231,7 @@ public partial class SystemFlightView : Node3D
 
         UpdatePlanets(s);
         UpdateCamera(s);
-        UpdateStardust(s);
+        UpdateStardust(s, delta);
         UpdateHud(s);
     }
 
@@ -345,20 +350,24 @@ public partial class SystemFlightView : Node3D
 
     private void UpdatePlanets(SimulationSnapshot s)
     {
+        // Floating origin: корабль в начале координат, тела рисуются относительно него.
+        Vector3 ship = ToGodot(s.Position);
+        Vector3 starRelative = -ship;
+        _starNode.Position = starRelative;
+
         for (int i = 0; i < _planetNodes.Count; i++)
         {
-            _planetNodes[i].Position = ToGodot(_model.BodyPosition(i, s.SimTime));
+            _planetNodes[i].Position = ToGodot(_model.BodyPosition(i, s.SimTime)) - ship;
         }
     }
 
     private void UpdateCamera(SimulationSnapshot s)
     {
-        Vector3 shipPos = ToGodot(s.Position);
         Vector3 forward = ToGodot(s.Orientation.Rotate(ShipAxes.Forward));
         Vector3 up = ToGodot(s.Orientation.Rotate(ShipAxes.Up));
 
-        // Камера в носу корабля, смотрит вперёд (вид от первого лица).
-        Vector3 eye = shipPos + (up * 0.35f);
+        // Камера в носу корабля (корабль в начале координат), смотрит вперёд — вид от первого лица.
+        Vector3 eye = up * 0.35f;
         _camera.GlobalTransform = new Transform3D(CameraBasis(forward, up), eye);
     }
 
@@ -375,15 +384,18 @@ public partial class SystemFlightView : Node3D
         return new Basis(r, u, -f);
     }
 
-    private void UpdateStardust(SimulationSnapshot s)
+    private void UpdateStardust(SimulationSnapshot s, double delta)
     {
-        Vector3 ship = ToGodot(s.Position);
+        // Floating origin: корабль стоит в центре, поэтому пыль летит навстречу (минус скорость)
+        // и заворачивается по границам бокса — бесконечное поле пыли, дающее ощущение скорости.
+        Vector3 v = ToGodot(s.Velocity);
+        Vector3 step = v * (float)delta;
         for (int i = 0; i < _dustPositions.Length; i++)
         {
-            Vector3 p = _dustPositions[i];
-            p.X = Wrap(p.X, ship.X);
-            p.Y = Wrap(p.Y, ship.Y);
-            p.Z = Wrap(p.Z, ship.Z);
+            Vector3 p = _dustPositions[i] - step;
+            p.X = Wrap(p.X, 0f);
+            p.Y = Wrap(p.Y, 0f);
+            p.Z = Wrap(p.Z, 0f);
             _dustPositions[i] = p;
             _dust.SetInstanceTransform(i, new Transform3D(Basis.Identity, p));
         }
@@ -425,7 +437,7 @@ public partial class SystemFlightView : Node3D
         {
             SystemBody body = _model.Body(s.TargetBodyIndex);
             double distance = _model.DistanceToBody(s.TargetBodyIndex, s.Position, s.SimTime);
-            string prompt = distance <= WorldSimulation.DockRange ? "   → F: стыковка" : string.Empty;
+            string prompt = distance <= _model.DockRadius(s.TargetBodyIndex) ? "   → F: стыковка" : string.Empty;
             _targetInfo.Text = $"Цель: {body.Planet.Name}  ·  {distance:0.0} ед.{prompt}";
         }
         else

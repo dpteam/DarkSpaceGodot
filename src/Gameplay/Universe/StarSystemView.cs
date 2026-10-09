@@ -24,9 +24,8 @@ namespace DarkSpace.Gameplay.Universe;
 /// </remarks>
 public partial class StarSystemView : Node3D
 {
-    private const float StarVisualRadius = 1.6f;
-    private const float MinDistance = 8.0f;
-    private const float MaxDistance = 160.0f;
+    private const float MinDistance = 40.0f;
+    private const float MaxDistance = 24000.0f;
 
     private sealed class PlanetNode
     {
@@ -34,6 +33,7 @@ public partial class StarSystemView : Node3D
         public required PlanetData Data { get; init; }
         public required MeshInstance3D Mesh { get; init; }
         public required StandardMaterial3D Material { get; init; }
+        public required float VisualRadius { get; init; }
         public Vector3 CurrentPosition { get; set; }
     }
 
@@ -54,7 +54,7 @@ public partial class StarSystemView : Node3D
 
     private float _yaw = 0.6f;
     private float _pitch = 0.9f;
-    private float _distance = 42.0f;
+    private float _distance = 700.0f;
     private bool _dragging;
     private Vector2 _pressPosition;
     private bool _pressMoved;
@@ -123,7 +123,8 @@ public partial class StarSystemView : Node3D
     {
         (Color starColor, float energy) = PlanetVisuals.Star(_system.Star);
 
-        var starMesh = new SphereMesh { Radius = StarVisualRadius, Height = StarVisualRadius * 2.0f, RadialSegments = 32, Rings = 16 };
+        float starRadius = (float)_model.StarRadius;
+        var starMesh = new SphereMesh { Radius = starRadius, Height = starRadius * 2.0f, RadialSegments = 48, Rings = 24 };
         var starMaterial = new StandardMaterial3D
         {
             AlbedoColor = starColor,
@@ -142,7 +143,7 @@ public partial class StarSystemView : Node3D
                 Name = "StarLight",
                 LightColor = starColor,
                 LightEnergy = energy,
-                OmniRange = 400.0f,
+                OmniRange = 20000.0f,
                 Position = Vector3.Zero,
             });
         }
@@ -158,9 +159,11 @@ public partial class StarSystemView : Node3D
 
             Color baseColor = PlanetVisuals.BaseColor(planet.Type);
             PlanetVisuals.Palette palette = PlanetVisuals.For(planet.Type);
-            float radius = PlanetVisuals.Radius(planet.Type);
 
-            var mesh = new SphereMesh { Radius = radius, Height = radius * 2.0f, RadialSegments = 24, Rings = 12 };
+            // На карте планеты — «звёздный график»: слегка увеличены для читаемости, но форма сферы реальная.
+            float radius = Mathf.Max((float)body.Radius * 2.5f, 6.0f);
+
+            var mesh = new SphereMesh { Radius = radius, Height = radius * 2.0f, RadialSegments = 32, Rings = 16 };
             var material = new StandardMaterial3D { AlbedoColor = baseColor };
             if (palette.Emissive > 0.01f)
             {
@@ -180,6 +183,7 @@ public partial class StarSystemView : Node3D
                 Data = planet,
                 Mesh = meshInstance,
                 Material = material,
+                VisualRadius = radius,
             });
         }
     }
@@ -216,7 +220,7 @@ public partial class StarSystemView : Node3D
         for (int s = 0; s <= samples; s++)
         {
             float a = Mathf.Tau * s / samples;
-            immediate.SurfaceAddVertex(new Vector3(Mathf.Cos(a) * 1.4f, 0.0f, Mathf.Sin(a) * 1.4f));
+            immediate.SurfaceAddVertex(new Vector3(Mathf.Cos(a), 0.0f, Mathf.Sin(a)));
         }
 
         immediate.SurfaceEnd();
@@ -233,7 +237,7 @@ public partial class StarSystemView : Node3D
 
     private void BuildCamera()
     {
-        _camera = new Camera3D { Name = "Camera", Current = true, Fov = 60.0f };
+        _camera = new Camera3D { Name = "Camera", Current = true, Fov = 60.0f, Near = 1.0f, Far = 60000.0f };
         AddChild(_camera);
         UpdateCamera();
     }
@@ -263,6 +267,8 @@ public partial class StarSystemView : Node3D
             Vector3 p = _planets[_selected].CurrentPosition;
             _selectionRing.Position = p;
             _selectionRing.RotateY((float)delta * 1.5f);
+            float ringScale = _planets[_selected].VisualRadius * 1.6f;
+            _selectionRing.Scale = new Vector3(ringScale, ringScale, ringScale);
             _selectionRing.Visible = true;
         }
 

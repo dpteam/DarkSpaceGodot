@@ -125,7 +125,7 @@ public sealed class NavigationDockingTests
             Vector3D toTarget = targetPos - snap.Position;
             double distance = toTarget.Length;
 
-            if (distance <= WorldSimulation.DockRange * 0.75)
+            if (distance <= 3.0)
             {
                 break;
             }

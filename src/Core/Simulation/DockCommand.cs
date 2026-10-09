@@ -5,7 +5,8 @@ namespace DarkSpace.Core.Simulation;
 /// </summary>
 /// <remarks>
 /// Применяется только если назначена цель и корабль находится в радиусе стыковки
-/// (см. <see cref="WorldSimulation.DockRange"/>). Иначе команда игнорируется.
+/// (поверхность планеты плюс зазор, см. <see cref="DarkSpace.Core.Systems.Orbital.StarSystemModel.DockRadius"/>).
+/// Иначе команда игнорируется.
 /// </remarks>
 /// <param name="PlayerId">Идентификатор игрока.</param>
 /// <param name="Sequence">Порядковый номер команды.</param>

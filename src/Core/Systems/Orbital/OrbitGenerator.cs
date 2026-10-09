@@ -17,7 +17,7 @@ namespace DarkSpace.Core.Systems.Orbital;
 public static class OrbitGenerator
 {
     /// <summary>Большая полуось самой внутренней орбиты (условные единицы).</summary>
-    public const double InnerOrbit = 6.0;
+    public const double InnerOrbit = SystemScale.InnerOrbit;
 
     /// <summary>Шаг между орбитами по большой полуоси (условные единицы).</summary>
     public const double OrbitSpacing = 4.5;
@@ -25,7 +25,7 @@ public static class OrbitGenerator
     /// <summary>
     /// Гравитационный параметр по умолчанию (используется там, где звезда неизвестна, и в тестах).
     /// </summary>
-    public const double DefaultGravitationalParameter = 250.0;
+    public const double DefaultGravitationalParameter = 640.0;
 
     /// <summary>
     /// Генерирует орбиты для всех планет системы.
@@ -70,9 +70,9 @@ public static class OrbitGenerator
         ulong seed = SeedHelper.Combine(system.Seed, "orbit", (ulong)planetIndex);
         var random = new DeterministicRandom(seed);
 
-        // Большая полуось растёт с индексом планеты, с небольшим разбросом.
-        double spacingJitter = random.NextDouble(0.9, 1.15);
-        double semiMajorAxis = InnerOrbit + (planetIndex * OrbitSpacing * spacingJitter);
+        // Большая полуось растёт геометрически (как орбитальные слои), с небольшим разбросом.
+        double spacingJitter = random.NextDouble(0.95, 1.08);
+        double semiMajorAxis = SystemScale.OrbitSemiMajorAxis(planetIndex) * spacingJitter;
 
         // Эксцентриситет: у дальних орбит чуть выше.
         double eccentricity = Math.Round(random.NextDouble(0.0, 0.28), 4);
