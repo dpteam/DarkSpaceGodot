@@ -11,7 +11,7 @@
 - По решению пользователя остаёмся на **Godot 4.7.2 stable .NET / net8.0**; dev-релизы не используем.
 - Актуализация документации: **2026-10-15**.
 - `main` — единственная ветка; main-only процесс по решению DartPower.
-- Последняя проверка стабильного среза: **237 unit + 13 integration tests**, сборка без предупреждений и ошибок.
+- Последняя локальная проверка: **262 unit + 13 integration tests** в Debug/Release, сборка без предупреждений и ошибок.
 - Сильная часть: процедурное главное меню с планетой и first-person Elite cockpit.
 - Реализовано: детерминированная процедурка, физика/орбиты, масштаб системы, станции, рынок Elite `QQ23`,
   loopback client/server.
@@ -28,6 +28,24 @@ changelog ниже сохраняются как история и не счит
 ## 1. История изменений (Changelog)
 
 ### [Unreleased]
+
+#### Input replay и защита тика — 2026-10-15
+
+- Добавлены `SimulationReplay`, `ReplayCommand`, `ReplayResult`: фиксированные тики от нового seed/config,
+  нулевые индексы тиков, порядок enqueue внутри тика без сортировки по Sequence.
+- `SnapshotDigest` — SHA-256 канонического JSON: ordinal-порядок ключей, invariant culture,
+  сохранение порядка массивов и точных double; NaN/Infinity отклоняются. Схема `darkspace-snapshot-v1`.
+- Golden flight v1: сид `0x51A7`, 480 шагов по 1/60, разгон/pitch+roll/торможение/coast.
+  Проверены скорость 0, топливо 34 ±1e-9 и изменившаяся позиция; hash зафиксирован в тесте и документации.
+- Воспроизведение сверяется с ручным исполнением после `CommandCodec` round-trip для EliteAligned и Newtonian.
+  Дополнительно проверены изменения input/seed/profile/mode, очередь, границы тиков, культура и словари.
+- Исправлен баг `WorldSimulation.Advance`: NaN/+Infinity раньше принимались и отравляли состояние.
+  Сначала воспроизведено двумя падающими тестовыми случаями; теперь ошибка возникает до dequeue команд.
+- Локально Debug/Release: 262 unit + 13 integration, сборка 0 warnings/errors; Godot import и menu smoke без ошибок.
+  Windows replay job добавлен к Linux unit suite в CI; кроссплатформенное совпадение ещё требует запуска GitHub Actions.
+- Ограничения: replay пока без runtime-рекордера/плеера UI; snapshot hash не включает скрытое состояние/репутацию/очередь.
+  Побитовая повторяемость на всех CPU/runtime не объявляется доказанной.
+- Документация: `docs/simulation-replay.md`; `docs/.gdignore` исключает скриншоты документации из игровых импортов.
 
 #### Main-only и проектные skills — 2026-10-15
 

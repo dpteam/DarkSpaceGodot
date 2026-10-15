@@ -37,7 +37,7 @@
 - Элитовская модель полёта по умолчанию: скорость вдоль носа, тангаж/крен, разгон и торможение.
 - Геометрический масштаб систем, floating origin, процедурные станции и рынок из 17 товаров.
 - Детерминированная генерация и физика, проверяемая математическими инвариантами.
-- **237 unit + 13 integration tests**, сборка без предупреждений.
+- **262 unit + 13 integration tests**, сборка без предупреждений.
 
 План переделки и следующие приоритеты — в [`ROADMAP.md`](ROADMAP.md).
 
@@ -100,6 +100,7 @@ Workflow [`CI`](.github/workflows/ci.yml) запускается для push в 
 
 - Release-сборку всей solution;
 - unit- и integration-тесты с TRX-отчётами;
+- replay/golden-регрессии на Linux (в unit suite) и отдельным job на Windows;
 - Godot 4.7.2 .NET headless import и smoke-запуск главной сцены;
 - публикацию downloadable artifacts `darkspace-build-<sha>` и `test-reports-<sha>`.
 
@@ -166,16 +167,26 @@ DarkSpace/
 | `SCENARIO.md` | Сюжет, лор, фракции, религия «Вселенское Православие» |
 | `PROMPT.md` | Исходное ТЗ harness |
 | `ROADMAP.md` | Приоритеты переделки и критерии качества |
+| [`docs/simulation-replay.md`](docs/simulation-replay.md) | Input replay, канонический snapshot hash и golden-регрессия |
 
 ---
 
 ## Вклад в проект
 
-- Работаем через ветки `feature/*`, `bugfix/*`, `hotfix/*`.
+- Сохраняем только ветку **`main`**; работаем небольшими логическими коммитами.
 - Коммиты — по **Conventional Commits** (`feat:`, `fix:`, `docs:`, ...).
-- Все изменения — через **Pull Request** с описанием (что, зачем, как проверено).
-- Перед PR: `dotnet build` без предупреждений, `dotnet test` — зелёный.
+- В итогах изменений указываем, что сделано и как проверено.
+- Перед коммитом: `dotnet build` без предупреждений, `dotnet test` — зелёный.
 - Подробности — в `AGENT.md`.
+
+### OpenCode skills
+
+Проектные skills обнаруживаются из `.opencode/skills/` без установки внешних серверов:
+
+- `@darkspace-godot` — Godot .NET, сцены, cockpit/HUD, процедурные визуалы и безопасный запуск по RDP;
+- `@darkspace-replay` — детерминизм, physics-first, replay и проверки снапшотов.
+
+Skill — инструкции для агента, не MCP-сервер и не плагин Godot.
 
 ---
 

@@ -39,7 +39,8 @@
 - [ ] FOV-kick и небольшая инерция камеры при разгоне.
 - [ ] Процедурный звук двигателя, тяги, warning, scanner и docking.
 - [ ] Улучшенный cockpit HUD: energy banks, heat, shields, weapon banks, docking lights.
-- [ ] Golden input replay: один input script → один snapshot hash на всех платформах.
+- [x] Input replay по фиксированным тикам, канонический SHA-256 snapshot и golden flight regression.
+- [ ] Подтвердить один golden hash на Linux/Windows в CI; не считать локальный тест доказательством для всех платформ.
 
 ## P1 — карта системы
 

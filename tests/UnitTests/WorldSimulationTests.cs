@@ -40,6 +40,22 @@ public sealed class WorldSimulationTests
         Assert.Throws<ArgumentOutOfRangeException>(() => sim.Advance(-1));
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void Advance_NonFiniteDt_RejectsBeforeProcessingCommands(double dt)
+    {
+        var sim = new WorldSimulation(1);
+        sim.Enqueue(new MoveCommand(1, 0, 1.0, 0.0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => sim.Advance(dt));
+        Assert.Equal(0, sim.Tick);
+        Assert.Equal(0.0, sim.SimTime);
+        Assert.Equal(1, sim.PendingCommandCount);
+        Assert.Equal(WorldSimulation.ShipSpawn, sim.CaptureSnapshot().Position);
+    }
+
     [Fact]
     public void Move_ThrustsAlongNose()
     {

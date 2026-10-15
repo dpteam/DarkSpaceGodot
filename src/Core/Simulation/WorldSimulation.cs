@@ -216,13 +216,13 @@ public sealed class WorldSimulation
     /// <summary>
     /// Выполняет один тик: применяет накопленные команды, затем шаг физики на <paramref name="deltaSeconds"/>.
     /// </summary>
-    /// <param name="deltaSeconds">Длительность тика в секундах. Должна быть положительной и одинаковой у всех участников.</param>
-    /// <exception cref="ArgumentOutOfRangeException">Если <paramref name="deltaSeconds"/> не положительна.</exception>
+    /// <param name="deltaSeconds">Конечная положительная длительность тика в секундах, одинаковая у всех участников.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Если шаг не положителен или не является конечным числом.</exception>
     public void Advance(double deltaSeconds)
     {
-        if (deltaSeconds <= 0)
+        if (!double.IsFinite(deltaSeconds) || deltaSeconds <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(deltaSeconds), deltaSeconds, "Длительность тика должна быть положительной.");
+            throw new ArgumentOutOfRangeException(nameof(deltaSeconds), deltaSeconds, "Длительность тика должна быть конечной и положительной.");
         }
 
         while (_pending.Count > 0)

@@ -82,6 +82,35 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  replay-windows:
+    name: Replay regression (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run replay and digest regression tests
+        run: >-
+          dotnet test tests/UnitTests/UnitTests.csproj -c Release --nologo
+          --filter FullyQualifiedName~SimulationReplayTests
+          --logger "trx;LogFileName=replay-windows.trx"
+
+      - name: Upload replay report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay-windows-${{ github.sha }}
+          path: tests/**/TestResults/*.trx
+          if-no-files-found: ignore
+          retention-days: 14
+
   godot-headless:
     name: Godot headless smoke test
     runs-on: ubuntu-latest
