@@ -1,5 +1,7 @@
 # Dark Space
 
+[![CI](https://github.com/dpteam/DarkSpaceGodot/actions/workflows/ci.yml/badge.svg)](https://github.com/dpteam/DarkSpaceGodot/actions/workflows/ci.yml)
+
 > Космический симулятор / RPG / выживание с открытым миром, полностью сгенерированным процедурно.
 > 256 галактик, алхимия ресурсов, мультиплеер, «Вселенское Православие» и очень чёрный юмор.
 
@@ -43,7 +45,7 @@
 
 ## Требования для сборки
 
-- **Godot 4.4+** с поддержкой **.NET / Mono** (обязательно `.NET`-сборка, обычная не подойдёт).
+- **Godot 4.7.2 stable .NET / Mono** (обязательно `.NET`-сборка, обычная не подойдёт).
 - **.NET 8 SDK** (для сборки C#-проекта и тестов).
 - ОС: Windows / Linux / macOS (разработка ведётся на Windows).
 
@@ -65,7 +67,7 @@ dotnet build DarkSpace.sln
 
 ### 2. Запуск в редакторе Godot
 
-1. Открой **Godot 4.4+ (.NET)**.
+1. Открой **Godot 4.7.2 stable (.NET)**.
 2. `Project → Open` → выбери `project.godot` в корне репозитория.
 3. Дождись сборки C# (Godot вызовет `dotnet build` автоматически) и нажми **F5**.
 
@@ -90,6 +92,20 @@ godot --path . -- --run
 dotnet test tests/UnitTests/UnitTests.csproj
 dotnet test tests/IntegrationTests/IntegrationTests.csproj
 ```
+
+### 5. GitHub Actions
+
+Workflow [`CI`](.github/workflows/ci.yml) запускается для push в `main` и для pull request в `main`.
+Он выполняет:
+
+- Release-сборку всей solution;
+- unit- и integration-тесты с TRX-отчётами;
+- Godot 4.7.2 .NET headless import и smoke-запуск главной сцены;
+- публикацию downloadable artifacts `darkspace-build-<sha>` и `test-reports-<sha>`.
+
+Артефакты доступны во вкладке **Actions → нужный workflow run → Artifacts** и хранятся 14 дней.
+`darkspace-build-<sha>` содержит сборки C# и метаданные, а не самостоятельный игровой EXE:
+для запуска пока нужны исходный проект и соответствующий Godot .NET.
 
 ---
 
@@ -137,9 +153,6 @@ DarkSpace/
 (`open-editor.cmd`, `run-game.cmd`, `build-and-test.cmd`) — см. `tools/README.md`.
 
 Референсы Elite II и NES Elite находятся локально в `refs/`, исключены из Git и используются только
-для изучения алгоритмов, интерфейса и математики.
-
-Референсы Elite II и NES Elite находятся локально в `refs/`, исключены из Git и используются только
 для изучения алгоритмов, интерфейса и математики: `refs/glfrontier-master`, `refs/ELITE1NES`.
 
 ---
@@ -152,6 +165,7 @@ DarkSpace/
 | `MEMORY.md` | Changelog, известные проблемы, принятые решения, дизайн-заметки, ссылки |
 | `SCENARIO.md` | Сюжет, лор, фракции, религия «Вселенское Православие» |
 | `PROMPT.md` | Исходное ТЗ harness |
+| `ROADMAP.md` | Приоритеты переделки и критерии качества |
 
 ---
 
@@ -173,23 +187,15 @@ DarkSpace/
 
 ## Ссылки
 
-- Репозиторий: _(указать URL после публикации)_
-- Контакты: _(указать контакт мейнтейнера)_
-
-## Ближайшая переделка
-
-1. Довести first-person полёт до цельного Elite-ощущения.
-2. Улучшить карту системы и выбор объектов.
-3. Добавить процедурные 3D-текстуры планет и посадку в духе No Man's Sky.
-4. Расширить торговый цикл, бой и гиперпрыжки.
-
-Подробности и критерии готовности — в [`ROADMAP.md`](ROADMAP.md).
+- Репозиторий: [dpteam/DarkSpaceGodot](https://github.com/dpteam/DarkSpaceGodot).
+- Автор: **DartPower**.
+- Баги и предложения: [GitHub Issues](https://github.com/dpteam/DarkSpaceGodot/issues).
 
 ## Что переделываем дальше
 
 1. Доводим first-person полёт до цельного Elite-ощущения: манёвр, дашборд, ускорение, звук, scanner feedback.
 2. Обновляем карту системы: масштаб, камера, выбор объектов, станции и маршрут к цели.
-3. Добавляем процедурные текстуры планет тем же сивдом, что используется в меню.
+3. Добавляем процедурные текстуры планет с тем же сидом, что используется в меню.
 4. Делаем посадку на планету отдельным детерминированным режимом, вдохновлённым No Man's Sky.
 5. Расширяем станции/рынок, бой, гиперпрыжки и реальный сетевой транспорт.
 
